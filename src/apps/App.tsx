@@ -1,9 +1,9 @@
 "use client";
 
-import type UIContext from "@sdk/types/ui-context";
+import { UiContext } from "@applicator/sdk/context";
 
 interface Props {
-  context: UIContext;
+  context?: UiContext;
 }
 
 export default function App({ context }: Props) {

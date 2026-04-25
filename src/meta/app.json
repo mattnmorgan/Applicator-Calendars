@@ -9,10 +9,12 @@
   "author": "Your Name",
   "contactEmail": "you@example.com",
   "description": "Description of what your app does",
+  "requiredPermissions": [],
   "dependencies": {},
   "tables": [],
   "authorizations": [],
   "authorities": [],
+  "notificationTopics": [],
   "apiRoutes": [
     { "path": "items", "method": "GET", "description": "List all items" },
     { "path": "items", "method": "POST", "description": "Create a new item" },

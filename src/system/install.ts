@@ -2,6 +2,9 @@ export async function OnInstallation(context: {
   priorVersion: string | undefined;
   currentVersion: string;
   appId: string;
+  storagePath: string;
+  adminUserId: string | null;
+  ctx: any;
 }) {
   if (context.priorVersion === undefined) {
     console.log(`${context.appId} ${context.currentVersion} installed`);
