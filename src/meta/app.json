@@ -1,7 +1,7 @@
 {
   "id": "calendars",
   "name": "Calendars",
-  "version": { "major": 1, "minor": 1, "dev": 0 },
+  "version": { "major": 1, "minor": 1, "dev": 1 },
   "author": "Matthew Morgan",
   "contactEmail": "matthew@morgantech.info",
   "description": "Maintain schedules, agendas, and important dates in a calendar form",

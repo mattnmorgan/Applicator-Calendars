@@ -292,8 +292,8 @@ export default function Calendar({ context: _context }: Props) {
             }}
           >
             <span><Icon name="calendar" size={48} /></span>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>No calendar selected</div>
-            <div style={{ fontSize: 14 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#e2e8f0" }}>No calendar selected</div>
+            <div style={{ fontSize: 14, color: "#e2e8f0" }}>
               {calendars.length === 0 ? (
                 <Button variant="primary" onClick={() => setShowNewCalendar(true)}>Create your first calendar</Button>
               ) : (

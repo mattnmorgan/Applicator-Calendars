@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal, Button, ButtonIcon, Spinner } from "@applicator/sdk/components";
+import { Modal, Button, ButtonIcon, Spinner, DynamicInput } from "@applicator/sdk/components";
 import { CalendarData, ShareData, UserData } from "@/src/types";
 
 interface Props {
@@ -9,12 +9,6 @@ interface Props {
   onClose: () => void;
   onSaved: (updates: Partial<CalendarData>) => void;
 }
-
-const COLORS = [
-  "#3B82F6", "#EF4444", "#F59E0B", "#10B981",
-  "#8B5CF6", "#EC4899", "#14B8A6", "#F97316",
-  "#6B7280", "#1D4ED8",
-];
 
 const VIEW_OPTIONS = [
   { value: "today", label: "Today" },
@@ -103,37 +97,26 @@ function DetailsTab({ calendar, onSaved, onClose }: { calendar: CalendarData; on
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Name *</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={INPUT_STYLE}
-        />
-      </div>
+      <DynamicInput
+        input={{ id: "name", label: "Name", type: "text", required: true }}
+        value={name}
+        onChange={(_, v) => setName(v)}
+      />
+
+      <DynamicInput
+        input={{ id: "description", label: "Description", type: "text", lines: 2, resizable: true }}
+        value={description}
+        onChange={(_, v) => setDescription(v)}
+      />
+
+      <DynamicInput
+        input={{ id: "color", label: "Color", type: "color" }}
+        value={color}
+        onChange={(_, v) => setColor(v)}
+      />
 
       <div>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Description</label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          style={{ ...INPUT_STYLE, resize: "vertical" }}
-        />
-      </div>
-
-      <div>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Color</label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {COLORS.map((c) => (
-            <button key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: color === c ? "3px solid #e2e8f0" : "2px solid transparent", cursor: "pointer", padding: 0, outline: "none" }} />
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Icon</label>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Icon</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {(calendar.hasIcon || iconFile) && (
             <img
@@ -149,15 +132,14 @@ function DetailsTab({ calendar, onSaved, onClose }: { calendar: CalendarData; on
         </div>
       </div>
 
-      <div>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Default View</label>
-        <select value={defaultView} onChange={(e) => setDefaultView(e.target.value as any)} style={SELECT_STYLE}>
-          {VIEW_OPTIONS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-        </select>
-      </div>
+      <DynamicInput
+        input={{ id: "defaultView", label: "Default View", type: "select", options: VIEW_OPTIONS }}
+        value={defaultView}
+        onChange={(_, v) => setDefaultView(v)}
+      />
 
       <div style={{ borderTop: "1px solid #334155", paddingTop: 12 }}>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>Calendar ID</label>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>Calendar ID</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <code style={{ fontSize: 12, background: "#0f172a", color: "#94a3b8", padding: "4px 8px", borderRadius: 4, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {calendar.id}
@@ -167,7 +149,7 @@ function DetailsTab({ calendar, onSaved, onClose }: { calendar: CalendarData; on
       </div>
 
       <div>
-        <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>ICS URL</label>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>ICS URL</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <code style={{ fontSize: 12, background: "#0f172a", color: "#94a3b8", padding: "4px 8px", borderRadius: 4, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {icsUrl}
