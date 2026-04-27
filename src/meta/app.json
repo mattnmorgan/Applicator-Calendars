@@ -1,35 +1,167 @@
 {
-  "id": "my-app",
-  "name": "My App",
-  "version": {
-    "major": 1,
-    "minor": 0,
-    "dev": 0
-  },
-  "author": "Your Name",
-  "contactEmail": "you@example.com",
-  "description": "Description of what your app does",
-  "requiredPermissions": [],
+  "id": "calendars",
+  "name": "Calendars",
+  "version": { "major": 1, "minor": 1, "dev": 0 },
+  "author": "Matthew Morgan",
+  "contactEmail": "matthew@morgantech.info",
+  "description": "Maintain schedules, agendas, and important dates in a calendar form",
+  "requiredPermissions": ["system:guest-accessible"],
   "dependencies": {},
-  "tables": [],
-  "authorizations": [],
-  "authorities": [],
-  "notificationTopics": [],
-  "apiRoutes": [
-    { "path": "items", "method": "GET", "description": "List all items" },
-    { "path": "items", "method": "POST", "description": "Create a new item" },
-    { "path": "items/[item-id]", "method": "GET", "description": "Get an item by ID" },
-    { "path": "items/[item-id]", "method": "PATCH", "description": "Update an item" },
-    { "path": "items/[item-id]", "method": "DELETE", "description": "Delete an item" }
+  "tables": [
+    {
+      "name": "calendar",
+      "description": "A calendar containing events",
+      "fields": [
+        { "name": "name", "type": "string", "required": true, "description": "Calendar name" },
+        { "name": "description", "type": "string", "description": "Calendar description" },
+        { "name": "color", "type": "string", "description": "Calendar color (hex, shown when no icon)" },
+        { "name": "hasIcon", "type": "boolean", "description": "Whether this calendar has an icon image" },
+        { "name": "iconData", "type": "string", "description": "Legacy base64 icon data for migration" },
+        { "name": "defaultView", "type": "string", "description": "Default view: today, 3days, week, month, agenda" },
+        { "name": "ownerId", "type": "relationship", "relatedTo": "system:users", "required": true, "description": "Owning user" },
+        { "name": "icsToken", "type": "string", "required": true, "description": "Unique token for public ICS URL" },
+        { "name": "createdAt", "type": "string", "required": true, "description": "ISO creation timestamp" },
+        { "name": "updatedAt", "type": "string", "required": true, "description": "ISO last-updated timestamp" }
+      ]
+    },
+    {
+      "name": "event",
+      "description": "An event on a calendar",
+      "fields": [
+        { "name": "calendarId", "type": "relationship", "relatedTo": "calendar", "required": true, "description": "Parent calendar" },
+        { "name": "name", "type": "string", "required": true, "description": "Event name" },
+        { "name": "description", "type": "string", "description": "Event description" },
+        { "name": "location", "type": "string", "description": "Event location" },
+        { "name": "color", "type": "string", "description": "Override color for this event (hex)" },
+        { "name": "allDay", "type": "boolean", "description": "Whether this is an all-day event" },
+        { "name": "status", "type": "string", "description": "Availability: free, busy, ooo" },
+        { "name": "startDate", "type": "string", "required": true, "description": "ISO datetime start" },
+        { "name": "endDate", "type": "string", "required": true, "description": "ISO datetime end" },
+        { "name": "isRecurring", "type": "boolean", "description": "Whether this event recurs" },
+        { "name": "recurrenceRule", "type": "string", "description": "JSON recurrence rule (type, interval, unit, days, endDate)" },
+        { "name": "seriesId", "type": "string", "description": "Master event ID for exception records" },
+        { "name": "exceptionDate", "type": "string", "description": "ISO date this exception overrides" },
+        { "name": "isException", "type": "boolean", "description": "True if this is an exception instance" },
+        { "name": "deletedOccurrences", "type": "string", "description": "JSON array of YYYY-MM-DD dates of deleted occurrences" },
+        { "name": "createdBy", "type": "relationship", "relatedTo": "system:users", "required": true, "description": "Creating user" },
+        { "name": "createdAt", "type": "string", "required": true, "description": "ISO creation timestamp" },
+        { "name": "updatedAt", "type": "string", "required": true, "description": "ISO last-updated timestamp" }
+      ]
+    },
+    {
+      "name": "reminder",
+      "description": "A per-user notification reminder for an event",
+      "fields": [
+        { "name": "eventId", "type": "relationship", "relatedTo": "event", "required": true, "description": "Associated event" },
+        { "name": "userId", "type": "relationship", "relatedTo": "system:users", "required": true, "description": "User to notify" },
+        { "name": "minutesBefore", "type": "number", "required": true, "description": "Minutes before event start to notify" },
+        { "name": "sentForDates", "type": "string", "description": "JSON array of ISO datetime strings already notified" }
+      ]
+    },
+    {
+      "name": "preference",
+      "description": "Per-user calendar preferences",
+      "fields": [
+        { "name": "userId", "type": "relationship", "relatedTo": "system:users", "required": true, "description": "Owning user" },
+        { "name": "defaultView", "type": "string", "description": "Default view override: today, 3days, week, month, agenda (empty = use calendar default)" }
+      ]
+    }
   ],
-  "agents": [],
+  "authorizations": [
+    { "id": "calendar-viewer", "name": "Calendar Viewer", "description": "View access to a shared calendar", "contextual": true },
+    { "id": "calendar-editor", "name": "Calendar Editor", "description": "Edit access to a shared calendar", "contextual": true },
+    { "id": "calendar-admin", "name": "Calendar Admin", "description": "Admin access (manage sharing, cannot delete or transfer)", "contextual": true }
+  ],
+  "authorities": [
+    { "id": "calendar-viewer", "name": "Calendar Viewer", "authorizations": ["calendars:calendar-viewer"] },
+    { "id": "calendar-editor", "name": "Calendar Editor", "authorizations": ["calendars:calendar-editor"] },
+    { "id": "calendar-admin", "name": "Calendar Admin", "authorizations": ["calendars:calendar-admin"] }
+  ],
+  "notificationTopics": [
+    {
+      "id": "event-reminder",
+      "name": "Event Reminder",
+      "summary": "Sent before a calendar event starts based on your configured reminders",
+      "ntfyTag": "calendar"
+    }
+  ],
+  "agents": [
+    {
+      "name": "reminder-check",
+      "label": "Event Reminder Check",
+      "description": "Checks every 5 minutes for upcoming events with reminders and sends notifications",
+      "cron": "*/5 * * * *"
+    }
+  ],
+  "apiRoutes": [
+    { "path": "calendars", "method": "GET", "description": "List calendars the user owns or has access to" },
+    { "path": "calendars", "method": "POST", "description": "Create a new calendar" },
+    { "path": "calendars/[calendar-id]", "method": "GET", "description": "Get a calendar" },
+    { "path": "calendars/[calendar-id]", "method": "PATCH", "description": "Update a calendar" },
+    { "path": "calendars/[calendar-id]", "method": "DELETE", "description": "Delete a calendar and revoke all shares" },
+    { "path": "calendars/[calendar-id]/shares", "method": "GET", "description": "List shares for a calendar" },
+    { "path": "calendars/[calendar-id]/shares", "method": "POST", "description": "Share a calendar with a user" },
+    { "path": "calendars/[calendar-id]/shares/[share-id]", "method": "PATCH", "description": "Update a share role" },
+    { "path": "calendars/[calendar-id]/shares/[share-id]", "method": "DELETE", "description": "Remove a share" },
+    { "path": "calendars/[calendar-id]/transfer", "method": "POST", "description": "Transfer calendar ownership" },
+    { "path": "calendars/[calendar-id]/ics", "method": "GET", "description": "Download ICS for a calendar (authenticated)" },
+    { "path": "icons/calendars/[calendar-id]", "method": "GET", "description": "Serve calendar icon" },
+    { "path": "icons/calendars/[calendar-id]", "method": "POST", "description": "Upload calendar icon" },
+    { "path": "events", "method": "GET", "description": "List expanded events for calendars within a date range" },
+    { "path": "events", "method": "POST", "description": "Create a new event" },
+    { "path": "events/[event-id]", "method": "GET", "description": "Get an event" },
+    { "path": "events/[event-id]", "method": "PATCH", "description": "Update an event" },
+    { "path": "events/[event-id]", "method": "DELETE", "description": "Delete an event (scope: one, following, all)" },
+    { "path": "events/[event-id]/reminders", "method": "GET", "description": "List reminders for an event" },
+    { "path": "events/[event-id]/reminders", "method": "POST", "description": "Add a reminder to an event" },
+    { "path": "events/[event-id]/reminders/[reminder-id]", "method": "DELETE", "description": "Delete a reminder" },
+    { "path": "ics/[ics-token]", "method": "GET", "description": "Public ICS endpoint (token-authenticated, no user login required)" },
+    { "path": "preferences", "method": "GET", "description": "Get user calendar preferences" },
+    { "path": "preferences", "method": "PATCH", "description": "Update user calendar preferences" },
+    { "path": "users", "method": "GET", "description": "List active users for sharing" }
+  ],
   "applets": [
     {
       "id": "main",
-      "label": "My App",
-      "description": "Main application view",
+      "label": "Calendars",
+      "description": "Calendar application with events, scheduling, and sharing",
       "target": "app",
-      "component": "App"
+      "component": "Calendar"
+    },
+    {
+      "id": "widget",
+      "label": "Calendar",
+      "description": "Shows a calendar view for selected calendars on the homescreen",
+      "target": "home",
+      "component": "CalendarWidget",
+      "settings": [
+        {
+          "name": "calendarIds",
+          "label": "Calendar IDs",
+          "type": "text",
+          "placeholder": "Comma-delimited calendar IDs"
+        },
+        {
+          "name": "viewType",
+          "label": "View",
+          "type": "select",
+          "defaultValue": "week",
+          "options": [
+            { "value": "today", "label": "Today" },
+            { "value": "3days", "label": "Next 3 Days" },
+            { "value": "week", "label": "This Week" },
+            { "value": "month", "label": "This Month" },
+            { "value": "agenda", "label": "Agenda" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "preferences",
+      "label": "Calendar Preferences",
+      "description": "Set your default calendar view and other preferences",
+      "target": "user-settings",
+      "component": "CalendarPreferences"
     }
   ]
 }
