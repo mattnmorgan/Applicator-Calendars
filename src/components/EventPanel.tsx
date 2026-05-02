@@ -28,6 +28,13 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
   const [confirmDeleteScope, setConfirmDeleteScope] = React.useState<DeleteScope | null>(null);
   const [showDeleteScopeMenu, setShowDeleteScopeMenu] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [visible, setVisible] = React.useState(false);
+
+  // Trigger slide-in on mount
+  React.useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const color = event.color || calendar?.color || "#3B82F6";
 
@@ -47,13 +54,20 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
   return (
     <div
       style={{
-        width: 320,
-        minWidth: 320,
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "45%",
+        minWidth: 280,
         background: "#1e293b",
         borderLeft: "1px solid #334155",
         display: "flex",
         flexDirection: "column",
-        overflowY: "auto",
+        zIndex: 20,
+        transform: visible ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.25s ease",
+        boxShadow: "-4px 0 24px rgba(0,0,0,0.35)",
       }}
     >
       {/* Header */}
@@ -64,6 +78,7 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
           justifyContent: "space-between",
           padding: "12px 16px",
           borderBottom: "1px solid #334155",
+          flexShrink: 0,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -88,7 +103,7 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
       </div>
 
       {/* Body */}
-      <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{event.name}</div>
           {calendar && (
@@ -149,7 +164,7 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
         )}
       </div>
 
-      {/* Delete scope menu for recurring events */}
+      {/* Delete scope menu */}
       {showDeleteScopeMenu && (
         <div
           style={{
@@ -180,18 +195,10 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
               Which occurrences do you want to delete?
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Button variant="secondary" fullWidth onClick={() => handleScopeSelect("one")}>
-                This event only
-              </Button>
-              <Button variant="secondary" fullWidth onClick={() => handleScopeSelect("following")}>
-                This and following events
-              </Button>
-              <Button variant="danger" fullWidth onClick={() => handleScopeSelect("all")}>
-                All events in series
-              </Button>
-              <Button variant="secondary" fullWidth onClick={() => setShowDeleteScopeMenu(false)}>
-                Cancel
-              </Button>
+              <Button variant="secondary" fullWidth onClick={() => handleScopeSelect("one")}>This event only</Button>
+              <Button variant="secondary" fullWidth onClick={() => handleScopeSelect("following")}>This and following events</Button>
+              <Button variant="danger" fullWidth onClick={() => handleScopeSelect("all")}>All events in series</Button>
+              <Button variant="secondary" fullWidth onClick={() => setShowDeleteScopeMenu(false)}>Cancel</Button>
             </div>
           </div>
         </div>

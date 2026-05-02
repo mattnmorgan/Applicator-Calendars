@@ -444,7 +444,6 @@ function AgendaView({ events, calendars, onEventClick }: {
 // ─── View Mode Tabs ──────────────────────────────────────────────────────────
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
-  { id: "today", label: "Today" },
   { id: "3days", label: "3 Days" },
   { id: "week", label: "Week" },
   { id: "month", label: "Month" },
@@ -509,7 +508,7 @@ export default function CalendarView({
           <ButtonIcon name="chevron-left" label="Previous" onClick={() => onNavigate("prev")} size="sm" />
           <button
             onClick={() => onNavigate("today")}
-            style={{ padding: "4px 10px", border: "1px solid #334155", borderRadius: 5, background: "transparent", cursor: "pointer", fontSize: 13 }}
+            style={{ padding: "4px 10px", border: "1px solid #334155", borderRadius: 5, background: "transparent", cursor: "pointer", fontSize: 13, color: "#e2e8f0" }}
           >
             Today
           </button>

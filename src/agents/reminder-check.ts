@@ -44,7 +44,7 @@ interface RecurrenceRule {
   type: "weekly" | "interval";
   days?: number[];
   interval?: number;
-  unit?: "day" | "week" | "month";
+  unit?: "day" | "week" | "month" | "year";
   endDate?: string;
 }
 
@@ -108,6 +108,7 @@ function expandEventOccurrences(
       if (rule.unit === "day") current = addDays(current, rule.interval);
       else if (rule.unit === "week") current = addDays(current, rule.interval * 7);
       else if (rule.unit === "month") current = addMonths(current, rule.interval);
+      else if (rule.unit === "year") current = addMonths(current, rule.interval * 12);
       iter++;
     }
   }

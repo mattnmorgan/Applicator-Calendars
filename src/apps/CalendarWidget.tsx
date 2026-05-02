@@ -128,7 +128,7 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", position: "relative" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", position: "relative", color: "#e2e8f0" }}>
       <CalendarView
         viewMode={viewMode}
         currentDate={currentDate}
@@ -140,7 +140,11 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
         onRefresh={loadData}
       />
       {selectedEvent && (
-        <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 300, zIndex: 20, background: "#1e293b", boxShadow: "-4px 0 16px rgba(0,0,0,0.4)" }}>
+        <>
+          <div
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 10 }}
+            onClick={() => setSelectedEvent(null)}
+          />
           <EventPanel
             event={selectedEvent}
             calendar={calendars.find((c) => c.id === selectedEvent.calendarId)}
@@ -149,7 +153,7 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
             onDelete={() => {}}
             canEdit={false}
           />
-        </div>
+        </>
       )}
     </div>
   );

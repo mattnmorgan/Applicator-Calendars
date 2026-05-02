@@ -6,16 +6,12 @@ import { EventOccurrence, RecurrenceRule, ReminderData } from "@/src/types";
 
 interface Props {
   calendarId: string;
+  calendarColor?: string;
   event?: EventOccurrence | null;
   defaultDate?: Date;
   onClose: () => void;
   onSaved: () => void;
 }
-
-const EVENT_COLORS = [
-  "", "#3B82F6", "#EF4444", "#F59E0B", "#10B981",
-  "#8B5CF6", "#EC4899", "#14B8A6", "#F97316",
-];
 
 const STATUS_OPTIONS = [
   { value: "free", label: "Free" },
@@ -25,14 +21,19 @@ const STATUS_OPTIONS = [
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const REMINDER_PRESETS = [
-  { label: "5 minutes", value: 5 },
-  { label: "15 minutes", value: 15 },
-  { label: "30 minutes", value: 30 },
-  { label: "1 hour", value: 60 },
-  { label: "2 hours", value: 120 },
-  { label: "1 day", value: 1440 },
-];
+type ReminderUnit = "minutes" | "hours" | "days";
+
+function toMinutes(value: number, unit: ReminderUnit): number {
+  if (unit === "hours") return value * 60;
+  if (unit === "days") return value * 1440;
+  return value;
+}
+
+function formatReminder(minutesBefore: number): string {
+  if (minutesBefore % 1440 === 0) return `${minutesBefore / 1440} day${minutesBefore / 1440 !== 1 ? "s" : ""} before`;
+  if (minutesBefore % 60 === 0) return `${minutesBefore / 60} hour${minutesBefore / 60 !== 1 ? "s" : ""} before`;
+  return `${minutesBefore} minute${minutesBefore !== 1 ? "s" : ""} before`;
+}
 
 function toLocalDatetimeString(iso: string): string {
   if (!iso) return "";
@@ -54,7 +55,7 @@ function localDatetimeToISO(local: string): string {
   return d.toISOString();
 }
 
-export default function EventModal({ calendarId, event, defaultDate, onClose, onSaved }: Props) {
+export default function EventModal({ calendarId, calendarColor, event, defaultDate, onClose, onSaved }: Props) {
   const isEditing = !!event;
 
   const defaultStart = defaultDate || new Date();
@@ -64,15 +65,15 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
   const [name, setName] = React.useState(event?.name || "");
   const [description, setDescription] = React.useState(event?.description || "");
   const [location, setLocation] = React.useState(event?.location || "");
-  const [color, setColor] = React.useState(event?.color || "");
+  const [color, setColor] = React.useState(event?.color || calendarColor || "#3B82F6");
   const [allDay, setAllDay] = React.useState(event?.allDay || false);
   const [status, setStatus] = React.useState<"free" | "busy" | "ooo">(event?.status || "free");
   const [startDate, setStartDate] = React.useState(
-    event ? (allDay ? toLocalDateString(event.occurrenceStart) : toLocalDatetimeString(event.occurrenceStart))
-          : (defaultDate ? toLocalDatetimeString(defaultStart.toISOString()) : toLocalDatetimeString(defaultStart.toISOString()))
+    event ? (event.allDay ? toLocalDateString(event.occurrenceStart) : toLocalDatetimeString(event.occurrenceStart))
+          : toLocalDatetimeString(defaultStart.toISOString())
   );
   const [endDate, setEndDate] = React.useState(
-    event ? (allDay ? toLocalDateString(event.occurrenceEnd) : toLocalDatetimeString(event.occurrenceEnd))
+    event ? (event.allDay ? toLocalDateString(event.occurrenceEnd) : toLocalDatetimeString(event.occurrenceEnd))
           : toLocalDatetimeString(defaultEnd.toISOString())
   );
   const [isRecurring, setIsRecurring] = React.useState(event?.isRecurring || false);
@@ -81,12 +82,13 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
   );
   const [recDays, setRecDays] = React.useState<number[]>(event?.recurrenceRule?.days || []);
   const [recInterval, setRecInterval] = React.useState(event?.recurrenceRule?.interval || 1);
-  const [recUnit, setRecUnit] = React.useState<"day" | "week" | "month">(event?.recurrenceRule?.unit || "week");
+  const [recUnit, setRecUnit] = React.useState<"day" | "week" | "month" | "year">(event?.recurrenceRule?.unit || "week");
   const [recEndDate, setRecEndDate] = React.useState(event?.recurrenceRule?.endDate || "");
 
   const [reminders, setReminders] = React.useState<ReminderData[]>([]);
   const [remindersLoaded, setRemindersLoaded] = React.useState(false);
-  const [newReminderMinutes, setNewReminderMinutes] = React.useState(30);
+  const [reminderValue, setReminderValue] = React.useState(30);
+  const [reminderUnit, setReminderUnit] = React.useState<ReminderUnit>("minutes");
 
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -107,15 +109,18 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
   }
 
   async function addReminder() {
+    const minutes = toMinutes(reminderValue, reminderUnit);
+    if (reminders.some((r) => r.minutesBefore === minutes)) return;
+
     if (!event) {
-      setReminders((prev) => [...prev, { id: `new-${Date.now()}`, eventId: "", userId: "", minutesBefore: newReminderMinutes }]);
+      setReminders((prev) => [...prev, { id: `new-${Date.now()}`, eventId: "", userId: "", minutesBefore: minutes }]);
       return;
     }
     try {
       const res = await fetch(`/api/calendars/events/${event.id}/reminders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ minutesBefore: newReminderMinutes }),
+        body: JSON.stringify({ minutesBefore: minutes }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       const r = await res.json();
@@ -152,7 +157,7 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
 
     if (allDay) {
       startISO = new Date(startDate + "T00:00:00Z").toISOString();
-      endISO = new Date(endDate + "T00:00:00Z").toISOString();
+      endISO = new Date((endDate || startDate) + "T00:00:00Z").toISOString();
     } else {
       startISO = localDatetimeToISO(startDate);
       endISO = localDatetimeToISO(endDate);
@@ -213,9 +218,17 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
     }
   }
 
+  const footer = (
+    <>
+      {error && <div style={{ flex: 1, color: "#EF4444", fontSize: 13 }}>{error}</div>}
+      <Button variant="secondary" onClick={onClose}>Cancel</Button>
+      <Button variant="primary" onClick={handleSave} disabled={saving}>{isEditing ? "Save" : "Create"}</Button>
+    </>
+  );
+
   return (
-    <Modal header={isEditing ? "Edit Event" : "New Event"} closeable onClose={onClose} maxWidth={560}>
-      <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14, maxHeight: "65vh", overflowY: "auto" }}>
+    <Modal header={isEditing ? "Edit Event" : "New Event"} closeable onClose={onClose} maxWidth={560} footer={footer}>
+      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
 
         <DynamicInput
           input={{ id: "name", label: "Name", type: "text", required: true, placeholder: "Event name" }}
@@ -223,25 +236,45 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
           onChange={(_, v) => setName(v)}
         />
 
-        <DynamicInput
-          input={{ id: "allDay", label: "All day", type: "toggle" }}
-          value={allDay}
-          onChange={(_, v) => setAllDay(v)}
-        />
-
-        <div style={{ display: "flex", gap: 12 }}>
-          <div style={{ flex: 1 }}>
+        {/* All day + Start + End: all-day shrinks to natural size, start/end flex with minWidth: 0 */}
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ flexShrink: 0 }}>
+            <DynamicInput
+              input={{ id: "allDay", label: "All day", type: "toggle" }}
+              value={allDay}
+              onChange={(_, v) => setAllDay(v)}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <DynamicInput
               input={{ id: "startDate", label: "Start", type: allDay ? "date" : "datetime" }}
               value={startDate}
               onChange={(_, v) => setStartDate(v)}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <DynamicInput
               input={{ id: "endDate", label: "End", type: allDay ? "date" : "datetime" }}
               value={endDate}
               onChange={(_, v) => setEndDate(v)}
+            />
+          </div>
+        </div>
+
+        {/* Status + Color inline, above description */}
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <DynamicInput
+              input={{ id: "status", label: "Status", type: "select", options: STATUS_OPTIONS }}
+              value={status}
+              onChange={(_, v) => setStatus(v)}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <DynamicInput
+              input={{ id: "color", label: "Color", type: "color" }}
+              value={color}
+              onChange={(_, v) => setColor(v)}
             />
           </div>
         </div>
@@ -257,33 +290,6 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
           value={location}
           onChange={(_, v) => setLocation(v)}
         />
-
-        <DynamicInput
-          input={{ id: "status", label: "Status", type: "select", options: STATUS_OPTIONS }}
-          value={status}
-          onChange={(_, v) => setStatus(v)}
-        />
-
-        {/* Color — keep custom swatch to support the "auto/calendar default" empty-string option */}
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: "#e2e8f0" }}>Color</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <button
-              onClick={() => setColor("")}
-              style={{ width: 28, height: 28, borderRadius: "50%", background: "#334155", border: color === "" ? "3px solid #e2e8f0" : "2px solid transparent", cursor: "pointer", padding: 0, outline: "none", fontSize: 11, color: "#e2e8f0" }}
-              title="Calendar default"
-            >
-              auto
-            </button>
-            {EVENT_COLORS.filter(Boolean).map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: color === c ? "3px solid #e2e8f0" : "2px solid transparent", cursor: "pointer", padding: 0, outline: "none" }}
-              />
-            ))}
-          </div>
-        </div>
 
         {/* Recurrence */}
         <div>
@@ -352,6 +358,7 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
                     <option value="day">day(s)</option>
                     <option value="week">week(s)</option>
                     <option value="month">month(s)</option>
+                    <option value="year">year(s)</option>
                   </select>
                 </div>
               )}
@@ -376,35 +383,33 @@ export default function EventModal({ calendarId, event, defaultDate, onClose, on
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {reminders.map((r) => (
               <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#e2e8f0" }}>
-                <span style={{ flex: 1 }}>
-                  {r.minutesBefore < 60
-                    ? `${r.minutesBefore} minute${r.minutesBefore !== 1 ? "s" : ""} before`
-                    : r.minutesBefore < 1440
-                    ? `${r.minutesBefore / 60} hour${r.minutesBefore / 60 !== 1 ? "s" : ""} before`
-                    : `${r.minutesBefore / 1440} day${r.minutesBefore / 1440 !== 1 ? "s" : ""} before`}
-                </span>
+                <span style={{ flex: 1 }}>{formatReminder(r.minutesBefore)}</span>
                 <ButtonIcon name="close" label="Remove reminder" onClick={() => removeReminder(r)} size="sm" />
               </div>
             ))}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="number"
+                min={1}
+                max={9999}
+                value={reminderValue}
+                onChange={(e) => setReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
+                style={{ width: 70, padding: "6px 8px", border: "1px solid #334155", borderRadius: 6, fontSize: 13, background: "#0f172a", color: "#f1f5f9" }}
+              />
               <select
-                value={newReminderMinutes}
-                onChange={(e) => setNewReminderMinutes(parseInt(e.target.value))}
+                value={reminderUnit}
+                onChange={(e) => setReminderUnit(e.target.value as ReminderUnit)}
                 style={{ padding: "6px 8px", border: "1px solid #334155", borderRadius: 6, fontSize: 13, background: "#0f172a", color: "#f1f5f9" }}
               >
-                {REMINDER_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                <option value="minutes">minutes</option>
+                <option value="hours">hours</option>
+                <option value="days">days</option>
               </select>
               <Button variant="secondary" onClick={addReminder}>Add reminder</Button>
             </div>
           </div>
         </div>
 
-        {error && <div style={{ color: "#EF4444", fontSize: 13 }}>{error}</div>}
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 4 }}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={handleSave} disabled={saving}>{isEditing ? "Save" : "Create"}</Button>
-        </div>
       </div>
     </Modal>
   );

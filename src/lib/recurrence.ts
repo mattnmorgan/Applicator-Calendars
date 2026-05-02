@@ -107,6 +107,9 @@ export function expandEvent(event: EventData, rangeStart: Date, rangeEnd: Date):
         case "month":
           current = addMonths(current, rule.interval);
           break;
+        case "year":
+          current = addMonths(current, rule.interval * 12);
+          break;
       }
       iter++;
     }
@@ -116,7 +119,7 @@ export function expandEvent(event: EventData, rangeStart: Date, rangeEnd: Date):
 }
 
 export function getNextOccurrences(event: EventData, after: Date, limit = 10): Date[] {
-  const rangeEnd = addDays(after, 366);
+  const rangeEnd = addDays(after, 3653);
   const occurrences = expandEvent(event, after, rangeEnd);
   return occurrences
     .map((o) => new Date(o.occurrenceStart))

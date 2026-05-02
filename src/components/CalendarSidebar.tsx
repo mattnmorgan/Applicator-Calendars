@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Icon, Tooltip, ButtonIcon } from "@applicator/sdk/components";
+import { Tooltip, ButtonIcon } from "@applicator/sdk/components";
 import { CalendarData } from "@/src/types";
 
 interface Props {
@@ -13,18 +13,13 @@ interface Props {
   onNewCalendar: () => void;
 }
 
-const CALENDAR_COLORS = [
-  "#3B82F6", "#EF4444", "#F59E0B", "#10B981",
-  "#8B5CF6", "#EC4899", "#14B8A6", "#F97316",
-];
-
 function CalendarIcon({ calendar }: { calendar: CalendarData }) {
   if (calendar.hasIcon) {
     return (
       <img
         src={`/api/calendars/icons/calendars/${calendar.id}`}
         alt={calendar.name}
-        style={{ width: 24, height: 24, borderRadius: 4, objectFit: "cover", flexShrink: 0 }}
+        style={{ width: 24, height: 24, borderRadius: 4, objectFit: "cover", flexShrink: 0, display: "block" }}
       />
     );
   }
@@ -60,8 +55,8 @@ export default function CalendarSidebar({
   return (
     <div
       style={{
-        width: collapsed ? 52 : 220,
-        minWidth: collapsed ? 52 : 220,
+        width: collapsed ? 44 : 220,
+        minWidth: collapsed ? 44 : 220,
         background: "#1e293b",
         borderRight: "1px solid #334155",
         display: "flex",
@@ -105,49 +100,68 @@ export default function CalendarSidebar({
           </div>
         )}
 
-        {calendars.map((cal) => (
-          <Tooltip
-            key={cal.id}
-            text={collapsed ? cal.name : undefined}
-            placement="right"
-          >
+        {calendars.map((cal) =>
+          collapsed ? (
+            // Collapsed: centering wrapper outside Tooltip so width: "100%" resolves correctly
+            <div key={cal.id} style={{ display: "flex", justifyContent: "center", padding: "3px 0" }}>
+              <Tooltip text={cal.name} placement="right">
+                <button
+                  onClick={() => onSelectCalendar(cal.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 6,
+                    background: selectedCalendarId === cal.id ? "#1e3a5f" : "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    transition: "background 0.15s",
+                  }}
+                >
+                  <CalendarIcon calendar={cal} />
+                </button>
+              </Tooltip>
+            </div>
+          ) : (
+            // Expanded: full row with name
             <button
+              key={cal.id}
               onClick={() => onSelectCalendar(cal.id)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
                 width: "calc(100% - 8px)",
-                padding: collapsed ? "6px 0" : "6px 12px",
-                justifyContent: collapsed ? "center" : "flex-start",
+                padding: "6px 12px",
                 background: selectedCalendarId === cal.id ? "#1e3a5f" : "transparent",
                 border: "none",
                 cursor: "pointer",
                 borderRadius: 6,
-                margin: "0 4px",
+                margin: "1px 4px",
                 textAlign: "left",
                 transition: "background 0.15s",
               }}
             >
               <CalendarIcon calendar={cal} />
-              {!collapsed && (
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: selectedCalendarId === cal.id ? 600 : 400,
-                    color: "#e2e8f0",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    flex: 1,
-                  }}
-                >
-                  {cal.name}
-                </span>
-              )}
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: selectedCalendarId === cal.id ? 600 : 400,
+                  color: "#e2e8f0",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flex: 1,
+                }}
+              >
+                {cal.name}
+              </span>
             </button>
-          </Tooltip>
-        ))}
+          )
+        )}
 
         {calendars.length === 0 && !collapsed && (
           <div style={{ padding: "16px 12px", fontSize: 13, color: "#94a3b8", textAlign: "center" }}>

@@ -31,7 +31,7 @@ export interface RecurrenceRule {
   type: "weekly" | "interval";
   days?: number[];
   interval?: number;
-  unit?: "day" | "week" | "month";
+  unit?: "day" | "week" | "month" | "year";
   endDate?: string;
 }
 
@@ -51,9 +51,33 @@ export interface EventRecord {
   exceptionDate?: string;
   isException?: boolean;
   deletedOccurrences?: string;
+  icsSubscriptionId?: string;
+  icsUid?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface IcsSubscriptionRecord {
+  calendarId: string;
+  name: string;
+  url: string;
+  color?: string;
+  ownerId: string;
+  lastSynced?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IcsSubscriptionData {
+  id: string;
+  calendarId: string;
+  name: string;
+  url: string;
+  color: string;
+  ownerId: string;
+  lastSynced: string | null;
+  createdAt: string;
 }
 
 export interface EventData {
