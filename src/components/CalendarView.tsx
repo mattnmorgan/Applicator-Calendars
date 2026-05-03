@@ -415,6 +415,8 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
   }
 
   const dates = Object.keys(grouped).sort();
+  const [hoveredKey, setHoveredKey] = React.useState<string | null>(null);
+
   if (dates.length === 0) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.5, fontSize: 14 }}>
@@ -434,10 +436,14 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
               {label}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {grouped[dateStr].map((ev) => (
+              {grouped[dateStr].map((ev) => {
+                const evKey = ev.id + ev.occurrenceDate;
+                return (
                 <button
-                  key={ev.id + ev.occurrenceDate}
+                  key={evKey}
                   onClick={() => onEventClick(ev)}
+                  onMouseEnter={() => setHoveredKey(evKey)}
+                  onMouseLeave={() => setHoveredKey(null)}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
@@ -445,7 +451,7 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
                     padding: "8px 12px",
                     border: "1px solid #334155",
                     borderRadius: 8,
-                    background: "#1e293b",
+                    background: hoveredKey === evKey ? "#273548" : "#1e293b",
                     color: "#e2e8f0",
                     cursor: "pointer",
                     textAlign: "left",
@@ -465,7 +471,8 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
                     {ev.location && <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>{ev.location}</div>}
                   </div>
                 </button>
-              ))}
+              );
+              })}
             </div>
           </div>
         );
@@ -485,6 +492,7 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
   onClose: () => void;
 }) {
   const [visible, setVisible] = React.useState(false);
+  const [hoveredKey, setHoveredKey] = React.useState<string | null>(null);
 
   React.useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
@@ -542,10 +550,14 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
-            {dayEvents.map((ev) => (
+            {dayEvents.map((ev) => {
+              const evKey = ev.id + ev.occurrenceDate;
+              return (
               <button
-                key={ev.id + ev.occurrenceDate}
+                key={evKey}
                 onClick={() => onEventClick(ev)}
+                onMouseEnter={() => setHoveredKey(evKey)}
+                onMouseLeave={() => setHoveredKey(null)}
                 style={{
                   display: "flex",
                   alignItems: "flex-start",
@@ -553,11 +565,12 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
                   padding: "8px 12px",
                   border: "1px solid #334155",
                   borderRadius: 8,
-                  background: "#0f172a",
+                  background: hoveredKey === evKey ? "#1e293b" : "#0f172a",
                   color: "#e2e8f0",
                   cursor: "pointer",
                   textAlign: "left",
                   width: "100%",
+                  transition: "background 0.1s",
                 }}
               >
                 <div style={{ width: 4, borderRadius: 2, background: getEventColor(ev, calendars, categories), flexShrink: 0, alignSelf: "stretch", minHeight: 20 }} />
@@ -573,7 +586,8 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
                   {ev.location && <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>{ev.location}</div>}
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
