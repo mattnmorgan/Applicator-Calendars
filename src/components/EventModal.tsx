@@ -92,7 +92,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
   const [reminderUnit, setReminderUnit] = React.useState<ReminderUnit>("minutes");
 
   const [categoryId, setCategoryId] = React.useState<string>(
-    event?.categoryId || ""
+    event?.categoryId ?? ""
   );
 
   const [saving, setSaving] = React.useState(false);
@@ -267,24 +267,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
           </div>
         </div>
 
-        {/* Category */}
-        {categories.length > 0 && (
-          <DynamicInput
-            input={{
-              id: "categoryId",
-              label: "Category",
-              type: "select",
-              options: [
-                { value: "", label: "None" },
-                ...categories.map((c) => ({ value: c.id, label: c.name })),
-              ],
-            }}
-            value={categoryId}
-            onChange={(_, v) => setCategoryId(v)}
-          />
-        )}
-
-        {/* Status + Color inline, above description */}
+        {/* Status + Category + Color inline */}
         <div style={{ display: "flex", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <DynamicInput
@@ -293,7 +276,30 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
               onChange={(_, v) => setStatus(v)}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          {categories.length > 0 && (
+            <div style={{ flex: 1 }}>
+              <DynamicInput
+                input={{
+                  id: "categoryId",
+                  label: "Category",
+                  type: "select",
+                  placeholder: "None",
+                  options: categories.map((c) => ({ value: c.id, label: c.name })),
+                }}
+                value={categoryId || null}
+                onChange={(_, v) => {
+                  setCategoryId(v ?? "");
+                  if (!v) {
+                    setColor(calendarColor || "#3B82F6");
+                  } else {
+                    const cat = categories.find((c) => c.id === v);
+                    if (cat) setColor(cat.color);
+                  }
+                }}
+              />
+            </div>
+          )}
+          <div style={{ flex: 0 }}>
             <DynamicInput
               input={{ id: "color", label: "Color", type: "color" }}
               value={color}

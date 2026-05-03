@@ -64,7 +64,7 @@ export default function CalendarPreferences({ context: _context }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 560, color: "white" }}>
+    <div style={{ padding: 24, color: "white" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Calendar Preferences</h3>

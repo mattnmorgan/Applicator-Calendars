@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal, Button, ButtonIcon, Spinner, DynamicInput } from "@applicator/sdk/components";
+import { Button, ButtonIcon, Spinner, DynamicInput } from "@applicator/sdk/components";
 import { CalendarData, ShareData, UserData } from "@/src/types";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   onClose: () => void;
   onSaved: (updates: Partial<CalendarData>) => void;
   onDelete: () => void;
+  onSubscriptionsChanged?: () => void;
 }
 
 const VIEW_OPTIONS = [
@@ -71,7 +72,6 @@ function DetailsContent({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Name | Color | Default View — all on one row */}
       <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
         <div style={{ flex: 2 }}>
           <DynamicInput
@@ -353,7 +353,7 @@ interface IcsSub {
   lastSynced: string | null;
 }
 
-function SubscriptionsTab({ calendar }: { calendar: CalendarData }) {
+function SubscriptionsTab({ calendar, onChanged }: { calendar: CalendarData; onChanged?: () => void }) {
   const canEdit = ["owner", "admin", "editor"].includes(calendar.role);
   const canDelete = ["owner", "admin"].includes(calendar.role);
   const [subs, setSubs] = React.useState<IcsSub[]>([]);
@@ -388,6 +388,7 @@ function SubscriptionsTab({ calendar }: { calendar: CalendarData }) {
       setSubs((prev) => [...prev, data]);
       setNewName("");
       setNewUrl("");
+      onChanged?.();
       if (data.syncError) setError(`Added, but initial sync failed: ${data.syncError}`);
     } catch (e: any) {
       setError(e.message);
@@ -408,6 +409,7 @@ function SubscriptionsTab({ calendar }: { calendar: CalendarData }) {
       setSubs((prev) =>
         prev.map((s) => (s.id === sub.id ? { ...s, lastSynced: new Date().toISOString() } : s))
       );
+      onChanged?.();
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -424,6 +426,7 @@ function SubscriptionsTab({ calendar }: { calendar: CalendarData }) {
       );
       if (!res.ok) throw new Error((await res.json()).error || "Delete failed");
       setSubs((prev) => prev.filter((s) => s.id !== subId));
+      onChanged?.();
     } catch (e: any) {
       setError(e.message);
     }
@@ -549,7 +552,7 @@ function ExportTab({ calendar }: { calendar: CalendarData }) {
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>Export as JSON</div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ flex: 1, fontSize: 13, color: "#94a3b8" }}>
-            Export calendar data (events, subscriptions, icon) as a JSON file for backup or re-import.
+            Export calendar data (events, subscriptions, categories, icon) as a JSON file for backup or re-import.
           </div>
           <a
             href={exportUrl}
@@ -577,9 +580,9 @@ function ExportTab({ calendar }: { calendar: CalendarData }) {
   );
 }
 
-// ─── Danger tab ──────────────────────────────────────────────────────────────
+// ─── Delete tab ──────────────────────────────────────────────────────────────
 
-function DangerTab({ calendar, onDelete }: { calendar: CalendarData; onDelete: () => void }) {
+function DeleteTab({ calendar, onDelete }: { calendar: CalendarData; onDelete: () => void }) {
   const [confirming, setConfirming] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -622,12 +625,13 @@ function DangerTab({ calendar, onDelete }: { calendar: CalendarData; onDelete: (
   );
 }
 
-// ─── Main modal ───────────────────────────────────────────────────────────────
+// ─── Main settings panel ──────────────────────────────────────────────────────
 
-export default function CalendarSettingsModal({ calendar, onClose, onSaved, onDelete }: Props) {
-  const [tab, setTab] = React.useState<"details" | "share" | "subscriptions" | "export" | "danger">("details");
+type TabId = "details" | "share" | "subscriptions" | "export" | "danger";
 
-  // Details tab state — lifted here so footer Save button can call handleSave
+export default function CalendarSettingsModal({ calendar, onClose, onSaved, onDelete, onSubscriptionsChanged }: Props) {
+  const [tab, setTab] = React.useState<TabId>("details");
+
   const [name, setName] = React.useState(calendar.name);
   const [description, setDescription] = React.useState(calendar.description || "");
   const [color, setColor] = React.useState(calendar.color || "#3B82F6");
@@ -671,73 +675,121 @@ export default function CalendarSettingsModal({ calendar, onClose, onSaved, onDe
   }
 
   const isOwner = calendar.role === "owner";
-  const tabs = [
-    "details",
-    "share",
-    "subscriptions",
-    "export",
-    ...(isOwner ? ["danger"] : []),
-  ] as const;
-  const tabLabels: Record<string, string> = {
-    details: "Details",
-    share: "Share",
-    subscriptions: "Subscriptions",
-    export: "Export",
-    danger: "Danger",
-  };
-
-  const footer = tab === "details" ? (
-    <>
-      {error && <div style={{ flex: 1, color: "#EF4444", fontSize: 13 }}>{error}</div>}
-      <Button variant="secondary" onClick={onClose}>Cancel</Button>
-      <Button variant="primary" onClick={handleSave} disabled={saving}>Save</Button>
-    </>
-  ) : undefined;
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "details", label: "Details" },
+    { id: "share", label: "Share" },
+    { id: "subscriptions", label: "Subscriptions" },
+    { id: "export", label: "Export" },
+    ...(isOwner ? [{ id: "danger" as TabId, label: "Delete" }] : []),
+  ];
 
   return (
-    <Modal header={`${calendar.name} — Settings`} closeable onClose={onClose} maxWidth={560} footer={footer}>
-      {/* Tab bar — flush against the modal header, no outer padding */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #334155" }}>
-        {tabs.map((t) => (
+    <div style={{ display: "flex", height: "100%", width: "100%", color: "white" }}>
+      {/* Left nav */}
+      <div
+        style={{
+          width: 180,
+          minWidth: 180,
+          background: "#1e293b",
+          borderRight: "1px solid #334155",
+          display: "flex",
+          flexDirection: "column",
+          padding: "12px 0",
+        }}
+      >
+        {/* Back button */}
+        <button
+          onClick={onClose}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 12px 10px",
+            background: "transparent",
+            border: "none",
+            color: "#94a3b8",
+            cursor: "pointer",
+            fontSize: 13,
+            marginBottom: 4,
+          }}
+        >
+          <span style={{ display: "inline-flex" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg></span>
+          Back
+        </button>
+
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", padding: "0 12px 6px" }}>
+          {calendar.name}
+        </div>
+
+        {tabs.map(({ id, label }) => (
           <button
-            key={t}
-            onClick={() => setTab(t as any)}
+            key={id}
+            onClick={() => setTab(id)}
             style={{
-              padding: "10px 18px",
+              display: "block",
+              width: "100%",
+              padding: "7px 12px",
+              textAlign: "left",
               border: "none",
-              borderBottom: tab === t ? "2px solid #3B82F6" : "2px solid transparent",
-              background: "transparent",
-              color: tab === t ? "#f1f5f9" : t === "danger" ? "#fca5a5" : "#94a3b8",
+              background: tab === id ? "#243044" : "transparent",
+              color: id === "danger" ? (tab === id ? "#fca5a5" : "#f87171") : (tab === id ? "#f1f5f9" : "#94a3b8"),
               fontSize: 14,
-              fontWeight: tab === t ? 600 : 400,
+              fontWeight: tab === id ? 600 : 400,
               cursor: "pointer",
-              marginBottom: -1,
+              borderRadius: 4,
+              margin: "1px 8px",
+              width: "calc(100% - 16px)" as any,
             }}
           >
-            {tabLabels[t]}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Tab body padding lives here, not on the modal wrapper */}
-      <div style={{ padding: 24 }}>
-        {tab === "details" && (
-          <DetailsContent
-            calendar={calendar}
-            name={name} setName={setName}
-            description={description} setDescription={setDescription}
-            color={color} setColor={setColor}
-            defaultView={defaultView} setDefaultView={setDefaultView}
-            iconFile={iconFile} setIconFile={setIconFile}
-            hasIcon={hasIcon} setHasIcon={setHasIcon}
-            removeIcon={removeIcon} setRemoveIcon={setRemoveIcon}
-          />
-        )}
-        {tab === "share" && <ShareTab calendar={calendar} />}
-        {tab === "subscriptions" && <SubscriptionsTab calendar={calendar} />}
-        {tab === "export" && <ExportTab calendar={calendar} />}
-        {tab === "danger" && isOwner && <DangerTab calendar={calendar} onDelete={onDelete} />}
+      {/* Content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+        {/* Content header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 24px",
+            borderBottom: "1px solid #334155",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 16 }}>
+            {tabs.find((t) => t.id === tab)?.label}
+          </div>
+          {tab === "details" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {error && <span style={{ color: "#EF4444", fontSize: 13 }}>{error}</span>}
+              <Button variant="primary" onClick={handleSave} disabled={saving}>Save</Button>
+            </div>
+          )}
+        </div>
+
+        {/* Tab body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+          {tab === "details" && (
+            <DetailsContent
+              calendar={calendar}
+              name={name} setName={setName}
+              description={description} setDescription={setDescription}
+              color={color} setColor={setColor}
+              defaultView={defaultView} setDefaultView={setDefaultView}
+              iconFile={iconFile} setIconFile={setIconFile}
+              hasIcon={hasIcon} setHasIcon={setHasIcon}
+              removeIcon={removeIcon} setRemoveIcon={setRemoveIcon}
+            />
+          )}
+          {tab === "share" && <ShareTab calendar={calendar} />}
+          {tab === "subscriptions" && <SubscriptionsTab calendar={calendar} onChanged={onSubscriptionsChanged} />}
+          {tab === "export" && <ExportTab calendar={calendar} />}
+          {tab === "danger" && isOwner && <DeleteTab calendar={calendar} onDelete={onDelete} />}
+        </div>
       </div>
-    </Modal>
+    </div>
   );
 }

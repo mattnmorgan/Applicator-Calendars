@@ -232,6 +232,28 @@ export default function Calendar({ context: _context }: Props) {
     return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><Spinner /></div>;
   }
 
+  if (showCalendarSettings && selectedCalendar) {
+    return (
+      <div style={{ display: "flex", height: "100%", overflow: "hidden", color: "white" }}>
+        <ToastStack toasts={toasts} onClose={(i) => setToasts((t) => t.filter((_, idx) => idx !== i))} />
+        <CalendarSettingsModal
+          calendar={selectedCalendar}
+          onClose={() => setShowCalendarSettings(false)}
+          onSaved={(updates) => {
+            setCalendars((prev) => prev.map((c) => (c.id === selectedCalendar.id ? { ...c, ...updates } : c)));
+            if (selectedCalendarId) loadCategoriesAndSubs(selectedCalendarId);
+            setShowCalendarSettings(false);
+          }}
+          onDelete={handleDeleteCalendar}
+          onSubscriptionsChanged={() => {
+            if (selectedCalendarId) loadCategoriesAndSubs(selectedCalendarId);
+            loadEvents();
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden", color: "white" }}>
       <ToastStack toasts={toasts} onClose={(i) => setToasts((t) => t.filter((_, idx) => idx !== i))} />
@@ -308,19 +330,6 @@ export default function Calendar({ context: _context }: Props) {
 
       {showNewCalendar && (
         <NewCalendarModal onClose={() => setShowNewCalendar(false)} onCreate={handleNewCalendar} />
-      )}
-
-      {showCalendarSettings && selectedCalendar && (
-        <CalendarSettingsModal
-          calendar={selectedCalendar}
-          onClose={() => setShowCalendarSettings(false)}
-          onSaved={(updates) => {
-            setCalendars((prev) => prev.map((c) => (c.id === selectedCalendar.id ? { ...c, ...updates } : c)));
-            if (selectedCalendarId) loadCategoriesAndSubs(selectedCalendarId);
-            setShowCalendarSettings(false);
-          }}
-          onDelete={handleDeleteCalendar}
-        />
       )}
 
       {showEventModal && selectedCalendar && (
