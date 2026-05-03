@@ -1,7 +1,7 @@
 {
   "id": "calendars",
   "name": "Calendars",
-  "version": { "major": 1, "minor": 5, "dev": 1 },
+  "version": { "major": 1, "minor": 5, "dev": 6 },
   "author": "Matthew Morgan",
   "contactEmail": "matthew@morgantech.info",
   "description": "Maintain schedules, agendas, and important dates in a calendar form",
@@ -533,7 +533,12 @@
     {
       "path": "calendars/[calendar-id]/export",
       "method": "GET",
-      "description": "Export calendar as JSON (events, subscriptions, icon)"
+      "description": "Export calendar as JSON (events, subscriptions, categories, icon)"
+    },
+    {
+      "path": "calendars/[calendar-id]/import",
+      "method": "POST",
+      "description": "Import events, categories, and subscriptions from a JSON export file"
     },
     {
       "path": "calendars/[calendar-id]/categories",

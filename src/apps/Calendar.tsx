@@ -51,7 +51,7 @@ export default function Calendar({ context: _context }: Props) {
   const [viewMode, setViewMode] = React.useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = React.useState(() => {
     const now = new Date();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   });
   const [events, setEvents] = React.useState<EventOccurrence[]>([]);
   const [eventsLoading, setEventsLoading] = React.useState(false);
@@ -147,7 +147,7 @@ export default function Calendar({ context: _context }: Props) {
   function handleNavigate(direction: "prev" | "next" | "today" | ViewMode) {
     if (direction === "today") {
       const now = new Date();
-      setCurrentDate(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
+      setCurrentDate(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())));
       return;
     }
     if (["today", "3days", "week", "month", "agenda"].includes(direction)) { setViewMode(direction as ViewMode); return; }
@@ -197,6 +197,32 @@ export default function Calendar({ context: _context }: Props) {
     setSelectedCalendarId(cal.id);
     setShowNewCalendar(false);
     addToast("success", "Calendar created");
+  }
+
+  async function handleImportCalendar(
+    calData: { name: string; description: string; color: string },
+    payload: { events: any[]; categories: any[]; subscriptions: any[] }
+  ) {
+    const createRes = await fetch("/api/calendars/calendars", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(calData),
+    });
+    if (!createRes.ok) throw new Error((await createRes.json()).error || "Failed to create calendar");
+    const cal = await createRes.json();
+
+    const importRes = await fetch(`/api/calendars/calendars/${cal.id}/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!importRes.ok) throw new Error((await importRes.json()).error || "Failed to import");
+    const result = await importRes.json();
+
+    setCalendars((prev) => [...prev, cal]);
+    setSelectedCalendarId(cal.id);
+    setShowNewCalendar(false);
+    addToast("success", `Imported: ${result.eventsImported} events, ${result.categoriesImported} categories`);
   }
 
   function handleCategoryCreated(cat: CategoryData) {
@@ -329,7 +355,7 @@ export default function Calendar({ context: _context }: Props) {
       </div>
 
       {showNewCalendar && (
-        <NewCalendarModal onClose={() => setShowNewCalendar(false)} onCreate={handleNewCalendar} />
+        <NewCalendarModal onClose={() => setShowNewCalendar(false)} onCreate={handleNewCalendar} onImport={handleImportCalendar} />
       )}
 
       {showEventModal && selectedCalendar && (

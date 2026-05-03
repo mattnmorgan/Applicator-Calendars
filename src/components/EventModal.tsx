@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal, Button, ButtonIcon, DynamicInput } from "@applicator/sdk/components";
+import { Modal, Button, ButtonIcon, DynamicInput, ToastStack } from "@applicator/sdk/components";
 import { EventOccurrence, RecurrenceRule, ReminderData, CategoryData } from "@/src/types";
 
 interface Props {
@@ -50,6 +50,23 @@ function toLocalDateString(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function defaultTimedDates(): { start: string; end: string } {
+  const now = new Date();
+  const interval = 15 * 60 * 1000;
+  const startMs = Math.ceil((now.getTime() + 60 * 60 * 1000) / interval) * interval;
+  return {
+    start: toLocalDatetimeString(new Date(startMs).toISOString()),
+    end: toLocalDatetimeString(new Date(startMs + 60 * 60 * 1000).toISOString()),
+  };
+}
+
+function defaultAllDayDates(): { start: string; end: string } {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return { start: today, end: today };
+}
+
 function localDatetimeToISO(local: string): string {
   if (!local) return "";
   const d = new Date(local);
@@ -96,7 +113,11 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
   );
 
   const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState("");
+  const [toasts, setToasts] = React.useState<{ type: "success" | "error"; message: string }[]>([]);
+
+  function addToast(type: "success" | "error", message: string) {
+    setToasts((t) => [...t, { type, message }]);
+  }
 
   React.useEffect(() => {
     if (event && !remindersLoaded) {
@@ -131,7 +152,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
       const r = await res.json();
       setReminders((prev) => [...prev, r]);
     } catch (e: any) {
-      setError(e.message);
+      addToast("error", e.message);
     }
   }
 
@@ -144,18 +165,15 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
       await fetch(`/api/calendars/events/${event.id}/reminders/${reminder.id}`, { method: "DELETE" });
       setReminders((prev) => prev.filter((r) => r.id !== reminder.id));
     } catch (e: any) {
-      setError(e.message);
+      addToast("error", e.message);
     }
   }
 
   async function handleSave() {
-    if (!name.trim()) { setError("Name is required"); return; }
-
-    const recurrenceRule: RecurrenceRule | null = isRecurring ? {
-      type: recType,
-      ...(recType === "weekly" ? { days: recDays } : { interval: recInterval, unit: recUnit }),
-      ...(recEndDate ? { endDate: recEndDate } : {}),
-    } : null;
+    // Validate
+    if (!name.trim()) { addToast("error", "Event name is required"); return; }
+    if (!startDate) { addToast("error", "Start date is required"); return; }
+    if (!endDate) { addToast("error", "End date is required"); return; }
 
     let startISO: string;
     let endISO: string;
@@ -166,10 +184,24 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
     } else {
       startISO = localDatetimeToISO(startDate);
       endISO = localDatetimeToISO(endDate);
+      if (new Date(endISO) < new Date(startISO)) {
+        addToast("error", "End date cannot be before start date");
+        return;
+      }
     }
 
+    if (isRecurring && recType === "weekly" && recDays.length === 0) {
+      addToast("error", "Select at least one day for weekly recurrence");
+      return;
+    }
+
+    const recurrenceRule: RecurrenceRule | null = isRecurring ? {
+      type: recType,
+      ...(recType === "weekly" ? { days: recDays } : { interval: recInterval, unit: recUnit }),
+      ...(recEndDate ? { endDate: recEndDate } : {}),
+    } : null;
+
     setSaving(true);
-    setError("");
 
     try {
       const body = {
@@ -194,7 +226,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error((await res.json()).error || "Failed to save");
+        if (!res.ok) { addToast("error", (await res.json()).error || "Failed to save"); return; }
         const saved = await res.json();
         eventId = saved.id;
       } else {
@@ -203,7 +235,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error((await res.json()).error || "Failed to create");
+        if (!res.ok) { addToast("error", (await res.json()).error || "Failed to create"); return; }
         const saved = await res.json();
         eventId = saved.id;
 
@@ -218,7 +250,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
 
       onSaved();
     } catch (e: any) {
-      setError(e.message);
+      addToast("error", e.message);
     } finally {
       setSaving(false);
     }
@@ -226,7 +258,6 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
 
   const footer = (
     <>
-      {error && <div style={{ flex: 1, color: "#EF4444", fontSize: 13 }}>{error}</div>}
       <Button variant="secondary" onClick={onClose}>Cancel</Button>
       <Button variant="primary" onClick={handleSave} disabled={saving}>{isEditing ? "Save" : "Create"}</Button>
     </>
@@ -234,6 +265,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
 
   return (
     <Modal header={isEditing ? "Edit Event" : "New Event"} closeable onClose={onClose} maxWidth={560} footer={footer}>
+      <ToastStack toasts={toasts} onClose={(i) => setToasts((t) => t.filter((_, idx) => idx !== i))} />
       <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
 
         <DynamicInput
@@ -248,7 +280,18 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
             <DynamicInput
               input={{ id: "allDay", label: "All day", type: "toggle" }}
               value={allDay}
-              onChange={(_, v) => setAllDay(v)}
+              onChange={(_, v) => {
+                setAllDay(v);
+                if (v) {
+                  const { start, end } = defaultAllDayDates();
+                  setStartDate(start);
+                  setEndDate(end);
+                } else {
+                  const { start, end } = defaultTimedDates();
+                  setStartDate(start);
+                  setEndDate(end);
+                }
+              }}
             />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>

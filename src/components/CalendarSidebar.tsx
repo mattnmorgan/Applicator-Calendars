@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  Tooltip,
   ButtonIcon,
   Button,
   DynamicInput,

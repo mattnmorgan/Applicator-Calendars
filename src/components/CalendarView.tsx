@@ -26,6 +26,15 @@ const HOUR_HEIGHT = 56;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const pad = (n: number) => String(n).padStart(2, "0");
 
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function occurrenceDateLocal(ev: EventOccurrence): string {
+  if (ev.allDay) return ev.occurrenceDate;
+  return localDateStr(new Date(ev.occurrenceStart));
+}
+
 function getEventColor(ev: EventOccurrence, calendars: CalendarData[], categories: CategoryData[]): string {
   if (ev.color) return ev.color;
   if (ev.categoryId) {
@@ -90,7 +99,7 @@ function TimeGridView({ days, events, calendars, categories, onEventClick }: {
   const allDayEvents = events.filter((e) => e.allDay);
   const timedEvents = events.filter((e) => !e.allDay);
 
-  const todayStr = formatDate(now);
+  const todayStr = formatDate(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
@@ -185,7 +194,7 @@ function TimeGridView({ days, events, calendars, categories, onEventClick }: {
           {/* Day columns */}
           {days.map((day) => {
             const dayStr = formatDate(day);
-            const dayEvents = timedEvents.filter((e) => e.occurrenceDate === dayStr);
+            const dayEvents = timedEvents.filter((e) => occurrenceDateLocal(e) === dayStr);
 
             return (
               <div key={dayStr} style={{ flex: 1, position: "relative", borderLeft: "1px solid #334155" }}>
@@ -282,7 +291,8 @@ function MonthView({ currentDate, events, calendars, categories, onEventClick, o
 }) {
   const monthStart = getMonthStart(currentDate);
   const weekStart = getWeekStart(monthStart);
-  const todayStr = formatDate(new Date());
+  const _now = new Date();
+  const todayStr = formatDate(new Date(Date.UTC(_now.getFullYear(), _now.getMonth(), _now.getDate())));
   const currentMonthStr = `${currentDate.getUTCFullYear()}-${pad(currentDate.getUTCMonth() + 1)}`;
 
   const cells: Date[] = [];
@@ -311,7 +321,7 @@ function MonthView({ currentDate, events, calendars, categories, onEventClick, o
               const dayStr = formatDate(day);
               const isToday = dayStr === todayStr;
               const isCurrentMonth = `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}` === currentMonthStr;
-              const dayEvents = events.filter((e) => e.occurrenceDate === dayStr).sort((a, b) => a.occurrenceStart.localeCompare(b.occurrenceStart));
+              const dayEvents = events.filter((e) => occurrenceDateLocal(e) === dayStr).sort((a, b) => a.occurrenceStart.localeCompare(b.occurrenceStart));
               const maxVisible = 3;
               const overflow = dayEvents.length - maxVisible;
 
@@ -399,8 +409,9 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
 }) {
   const grouped: Record<string, EventOccurrence[]> = {};
   for (const ev of events) {
-    if (!grouped[ev.occurrenceDate]) grouped[ev.occurrenceDate] = [];
-    grouped[ev.occurrenceDate].push(ev);
+    const key = occurrenceDateLocal(ev);
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(ev);
   }
 
   const dates = Object.keys(grouped).sort();
@@ -482,7 +493,7 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
 
   const dayStr = formatDate(day);
   const dayEvents = events
-    .filter((e) => e.occurrenceDate === dayStr)
+    .filter((e) => occurrenceDateLocal(e) === dayStr)
     .sort((a, b) => {
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;

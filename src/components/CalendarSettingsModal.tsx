@@ -517,17 +517,48 @@ function SubscriptionsTab({ calendar, onChanged }: { calendar: CalendarData; onC
 
 // ─── Export tab ───────────────────────────────────────────────────────────────
 
-function ExportTab({ calendar }: { calendar: CalendarData }) {
+function ExportTab({ calendar, onImported }: { calendar: CalendarData; onImported?: () => void }) {
   const icsUrl = `${window.location.origin}/api/calendars/calendars/${calendar.id}/ics`;
   const exportUrl = `/api/calendars/calendars/${calendar.id}/export`;
   const subUrl = `${window.location.origin}/api/calendars/ics/${calendar.icsToken}`;
   const [copiedSub, setCopiedSub] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
+  const [importResult, setImportResult] = React.useState<{ categoriesImported: number; eventsImported: number; subscriptionsImported: number; errors: string[] } | null>(null);
+  const [importError, setImportError] = React.useState("");
+  const importRef = React.useRef<HTMLInputElement>(null);
+  const canEdit = ["owner", "admin", "editor"].includes(calendar.role);
 
   function copySub() {
     navigator.clipboard.writeText(subUrl).then(() => {
       setCopiedSub(true);
       setTimeout(() => setCopiedSub(false), 2000);
     });
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImportResult(null);
+    setImportError("");
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const res = await fetch(`/api/calendars/calendars/${calendar.id}/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(json),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+      setImportResult(data);
+      onImported?.();
+    } catch (e: any) {
+      setImportError(e.message);
+    } finally {
+      setImporting(false);
+    }
   }
 
   return (
@@ -563,6 +594,37 @@ function ExportTab({ calendar }: { calendar: CalendarData }) {
           </a>
         </div>
       </div>
+
+      {canEdit && (
+        <div style={{ borderTop: "1px solid #334155", paddingTop: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Import from JSON</div>
+          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+            Import events, categories, and subscriptions from a previously exported JSON file. Existing data is not overwritten — categories are matched by name.
+          </div>
+          <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }} onChange={handleImportFile} />
+          <Button variant="secondary" onClick={() => importRef.current?.click()} disabled={importing}>
+            {importing ? "Importing…" : "Choose JSON file"}
+          </Button>
+          {importResult && (
+            <div style={{ marginTop: 12, padding: 12, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 6, fontSize: 13 }}>
+              <div style={{ color: "#34d399", fontWeight: 600, marginBottom: 4 }}>Import complete</div>
+              <div style={{ color: "#94a3b8" }}>
+                {importResult.categoriesImported} {importResult.categoriesImported === 1 ? "category" : "categories"},&nbsp;
+                {importResult.eventsImported} {importResult.eventsImported === 1 ? "event" : "events"},&nbsp;
+                {importResult.subscriptionsImported} {importResult.subscriptionsImported === 1 ? "subscription" : "subscriptions"} imported
+              </div>
+              {importResult.errors.length > 0 && (
+                <div style={{ marginTop: 8, color: "#fca5a5", fontSize: 12 }}>
+                  {importResult.errors.map((e, i) => <div key={i}>{e}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+          {importError && (
+            <div style={{ marginTop: 8, color: "#EF4444", fontSize: 13 }}>{importError}</div>
+          )}
+        </div>
+      )}
 
       <div style={{ borderTop: "1px solid #334155", paddingTop: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Subscribe URL</div>
@@ -786,7 +848,7 @@ export default function CalendarSettingsModal({ calendar, onClose, onSaved, onDe
           )}
           {tab === "share" && <ShareTab calendar={calendar} />}
           {tab === "subscriptions" && <SubscriptionsTab calendar={calendar} onChanged={onSubscriptionsChanged} />}
-          {tab === "export" && <ExportTab calendar={calendar} />}
+          {tab === "export" && <ExportTab calendar={calendar} onImported={onSubscriptionsChanged} />}
           {tab === "danger" && isOwner && <DeleteTab calendar={calendar} onDelete={onDelete} />}
         </div>
       </div>

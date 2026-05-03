@@ -47,6 +47,12 @@ export async function POST(
     if (!body.name?.trim()) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
     const catRm = context.recordManager<CategoryRecord>("calendars", "category");
+    const existing = await catRm.readRecords({ fields: { calendarId: params.calendarId }, limit: 500 });
+    const nameLower = body.name.trim().toLowerCase();
+    if (existing.records.some((r: any) => (r.data.name as string).toLowerCase() === nameLower)) {
+      return NextResponse.json({ error: "A category with that name already exists" }, { status: 409 });
+    }
+
     const table = await catRm.getTable();
     const now = new Date().toISOString();
 

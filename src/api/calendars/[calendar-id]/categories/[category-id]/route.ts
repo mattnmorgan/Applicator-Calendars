@@ -37,6 +37,15 @@ export async function PATCH(
   try {
     const body = await req.json();
     const catRm = context.recordManager<CategoryRecord>("calendars", "category");
+
+    if (body.name !== undefined) {
+      const nameLower = body.name.trim().toLowerCase();
+      const existing = await catRm.readRecords({ fields: { calendarId: params.calendarId }, limit: 500 });
+      if (existing.records.some((r: any) => r.id !== params.categoryId && (r.data.name as string).toLowerCase() === nameLower)) {
+        return NextResponse.json({ error: "A category with that name already exists" }, { status: 409 });
+      }
+    }
+
     const table = await catRm.getTable();
 
     const updates: Partial<CategoryRecord> = { updatedAt: new Date().toISOString() };
