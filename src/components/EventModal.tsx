@@ -50,10 +50,9 @@ function toLocalDateString(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function defaultTimedDates(): { start: string; end: string } {
-  const now = new Date();
+function defaultTimedDates(base?: Date): { start: string; end: string } {
   const interval = 15 * 60 * 1000;
-  const startMs = Math.ceil((now.getTime() + 60 * 60 * 1000) / interval) * interval;
+  const startMs = Math.ceil((base || new Date()).getTime() / interval) * interval;
   return {
     start: toLocalDatetimeString(new Date(startMs).toISOString()),
     end: toLocalDatetimeString(new Date(startMs + 60 * 60 * 1000).toISOString()),
@@ -76,9 +75,7 @@ function localDatetimeToISO(local: string): string {
 export default function EventModal({ calendarId, calendarColor, categories = [], event, defaultDate, onClose, onSaved }: Props) {
   const isEditing = !!event;
 
-  const defaultStart = defaultDate || new Date();
-  defaultStart.setMinutes(0, 0, 0);
-  const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000);
+  const _defaultTimed = defaultTimedDates(defaultDate);
 
   const [name, setName] = React.useState(event?.name || "");
   const [description, setDescription] = React.useState(event?.description || "");
@@ -88,11 +85,11 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
   const [status, setStatus] = React.useState<"free" | "busy" | "ooo">(event?.status || "free");
   const [startDate, setStartDate] = React.useState(
     event ? (event.allDay ? toLocalDateString(event.occurrenceStart) : toLocalDatetimeString(event.occurrenceStart))
-          : toLocalDatetimeString(defaultStart.toISOString())
+          : _defaultTimed.start
   );
   const [endDate, setEndDate] = React.useState(
     event ? (event.allDay ? toLocalDateString(event.occurrenceEnd) : toLocalDatetimeString(event.occurrenceEnd))
-          : toLocalDatetimeString(defaultEnd.toISOString())
+          : _defaultTimed.end
   );
   const [isRecurring, setIsRecurring] = React.useState(event?.isRecurring || false);
   const [recType, setRecType] = React.useState<"weekly" | "interval">(
@@ -173,7 +170,7 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
     // Validate
     if (!name.trim()) { addToast("error", "Event name is required"); return; }
     if (!startDate) { addToast("error", "Start date is required"); return; }
-    if (!endDate) { addToast("error", "End date is required"); return; }
+    if (!allDay && !endDate) { addToast("error", "End date is required"); return; }
 
     let startISO: string;
     let endISO: string;

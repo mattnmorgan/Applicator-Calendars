@@ -27,6 +27,7 @@ interface Props {
   onCategoryUpdated: (cat: CategoryData) => void;
   onCategoryDeleted: (id: string, scope: "migrate" | "delete") => void;
   onUnsubscribed: (id: string) => void;
+  onSubscriptionSynced?: () => void;
   canEdit: boolean;
 }
 
@@ -250,8 +251,10 @@ export default function CalendarSidebar({
   onCategoryUpdated,
   onCategoryDeleted,
   onUnsubscribed,
+  onSubscriptionSynced,
   canEdit,
 }: Props) {
+  const [syncingIds, setSyncingIds] = React.useState<Set<string>>(new Set());
   const [showCategoryModal, setShowCategoryModal] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<
     CategoryData | undefined
@@ -294,6 +297,16 @@ export default function CalendarSidebar({
       onUnsubscribed(sub.id);
     } catch {
       // silently ignore — Calendar.tsx will handle error toasts
+    }
+  }
+
+  async function handleSync(sub: IcsSubscriptionData) {
+    setSyncingIds((prev) => new Set([...prev, sub.id]));
+    try {
+      await fetch(`/api/calendars/calendars/${sub.calendarId}/subscriptions/${sub.id}/sync`, { method: "POST" });
+      onSubscriptionSynced?.();
+    } finally {
+      setSyncingIds((prev) => { const s = new Set(prev); s.delete(sub.id); return s; });
     }
   }
 
@@ -615,6 +628,16 @@ export default function CalendarSidebar({
                         onClick={() =>
                           setDeletingCategory(item.data as CategoryData)
                         }
+                      />
+                    )}
+                    {item.kind === "sub" && canEdit && (
+                      <ButtonIcon
+                        name="refresh"
+                        label="Sync now"
+                        size="sm"
+                        placement="bottom"
+                        disabled={syncingIds.has(id)}
+                        onClick={() => handleSync(item.data as IcsSubscriptionData)}
                       />
                     )}
                     {item.kind === "sub" && canEdit && (

@@ -301,6 +301,7 @@ export default function Calendar({ context: _context }: Props) {
         onCategoryUpdated={handleCategoryUpdated}
         onCategoryDeleted={handleCategoryDeleted}
         onUnsubscribed={handleUnsubscribed}
+        onSubscriptionSynced={loadEvents}
         canEdit={canEdit}
       />
 
