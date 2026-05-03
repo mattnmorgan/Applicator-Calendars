@@ -13,6 +13,7 @@ function calendarToData(record: any, role: string) {
     defaultView: record.data.defaultView || "week",
     ownerId: record.data.ownerId,
     icsToken: record.data.icsToken,
+    icsSharing: !!record.data.icsSharing,
     role,
   };
 }
@@ -47,6 +48,7 @@ export async function PATCH(
     if (body.description !== undefined) updates.description = body.description;
     if (body.color !== undefined) updates.color = body.color;
     if (body.defaultView !== undefined) updates.defaultView = body.defaultView;
+    if (body.icsSharing !== undefined) updates.icsSharing = !!body.icsSharing;
 
     const updated = await mgr.updateRecord(table, params.calendarId, updates as any);
     return NextResponse.json(calendarToData(updated, access.level));

@@ -11,6 +11,7 @@ export interface CalendarRecord {
   defaultView?: ViewMode;
   ownerId: string;
   icsToken: string;
+  icsSharing?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +25,7 @@ export interface CalendarData {
   defaultView: ViewMode;
   ownerId: string;
   icsToken: string;
+  icsSharing: boolean;
   role: CalendarRole;
 }
 

@@ -1,7 +1,7 @@
 {
   "id": "calendars",
   "name": "Calendars",
-  "version": { "major": 1, "minor": 5, "dev": 14 },
+  "version": { "major": 1, "minor": 5, "dev": 15 },
   "author": "Matthew Morgan",
   "contactEmail": "matthew@morgantech.info",
   "description": "Maintain schedules, agendas, and important dates in a calendar form",
@@ -55,6 +55,12 @@
           "type": "string",
           "required": true,
           "description": "Unique token for public ICS URL"
+        },
+        {
+          "name": "icsSharing",
+          "type": "boolean",
+          "required": false,
+          "description": "Whether the public subscribe URL is enabled; defaults to false"
         },
         {
           "name": "createdAt",

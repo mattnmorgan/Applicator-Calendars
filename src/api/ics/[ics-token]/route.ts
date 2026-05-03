@@ -35,7 +35,7 @@ export async function GET(
   const calRm = context.recordManager<CalendarRecord>("calendars", "calendar");
   const result = await calRm.readRecords({ fields: { icsToken: params.icsToken }, limit: 1 });
   const cal = result.records[0];
-  if (!cal) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!cal || !cal.data.icsSharing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const eventsRm = context.recordManager<EventRecord>("calendars", "event");
   const evResult = await eventsRm.readRecords({ fields: { calendarId: cal.id }, limit: 5000 });

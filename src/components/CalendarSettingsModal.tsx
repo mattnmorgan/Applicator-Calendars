@@ -517,11 +517,13 @@ function SubscriptionsTab({ calendar, onChanged }: { calendar: CalendarData; onC
 
 // ─── Export tab ───────────────────────────────────────────────────────────────
 
-function ExportTab({ calendar, onImported }: { calendar: CalendarData; onImported?: () => void }) {
+function ExportTab({ calendar, onImported, onSaved }: { calendar: CalendarData; onImported?: () => void; onSaved?: (updates: Partial<CalendarData>) => void }) {
   const icsUrl = `${window.location.origin}/api/calendars/calendars/${calendar.id}/ics`;
   const exportUrl = `/api/calendars/calendars/${calendar.id}/export`;
   const subUrl = `${window.location.origin}/api/calendars/ics/${calendar.icsToken}`;
   const [copiedSub, setCopiedSub] = React.useState(false);
+  const [icsSharing, setIcsSharing] = React.useState(calendar.icsSharing ?? false);
+  const [sharingBusy, setSharingBusy] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
   const [importResult, setImportResult] = React.useState<{ categoriesImported: number; eventsImported: number; subscriptionsImported: number; errors: string[] } | null>(null);
   const [importError, setImportError] = React.useState("");
@@ -533,6 +535,23 @@ function ExportTab({ calendar, onImported }: { calendar: CalendarData; onImporte
       setCopiedSub(true);
       setTimeout(() => setCopiedSub(false), 2000);
     });
+  }
+
+  async function handleIcsSharingToggle(e: React.ChangeEvent<HTMLInputElement>) {
+    const next = e.target.checked;
+    setIcsSharing(next);
+    setSharingBusy(true);
+    try {
+      const res = await fetch(`/api/calendars/calendars/${calendar.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ icsSharing: next }),
+      });
+      if (!res.ok) { setIcsSharing(!next); return; }
+      onSaved?.({ icsSharing: next });
+    } finally {
+      setSharingBusy(false);
+    }
   }
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -628,15 +647,25 @@ function ExportTab({ calendar, onImported }: { calendar: CalendarData; onImporte
 
       <div style={{ borderTop: "1px solid #334155", paddingTop: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: "#e2e8f0" }}>Subscribe URL</div>
-        <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>
-          Use this URL in Google Calendar or other apps to subscribe and keep events in sync automatically.
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1, fontSize: 13, color: "#94a3b8" }}>
+            Use this URL in Google Calendar or other apps to subscribe and keep events in sync automatically.
+          </div>
+          <label style={{ position: "relative", display: "inline-flex", width: 34, height: 22, flexShrink: 0, cursor: sharingBusy ? "not-allowed" : "pointer", opacity: sharingBusy ? 0.5 : 1 }}>
+            <input type="checkbox" checked={icsSharing} onChange={handleIcsSharingToggle} disabled={sharingBusy} style={{ opacity: 0, width: 0, height: 0, position: "absolute" }} />
+            <span style={{ position: "absolute", inset: 0, background: icsSharing ? "#3b82f6" : "#334155", borderRadius: 7, transition: "background 0.2s" }}>
+              <span style={{ position: "absolute", width: 16, height: 16, left: icsSharing ? 15 : 3, top: 3, background: icsSharing ? "#fff" : "#94a3b8", borderRadius: 4, transition: "left 0.2s, background 0.2s" }} />
+            </span>
+          </label>
         </div>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <code style={{ fontSize: 12, background: "#0f172a", color: "#94a3b8", padding: "6px 8px", borderRadius: 4, flex: 1, wordBreak: "break-all" }}>
-            {subUrl}
-          </code>
-          <ButtonIcon name="copy" label={copiedSub ? "Copied!" : "Copy URL"} onClick={copySub} size="sm" />
-        </div>
+        {icsSharing && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 8 }}>
+            <code style={{ fontSize: 12, background: "#0f172a", color: "#94a3b8", padding: "6px 8px", borderRadius: 4, flex: 1, wordBreak: "break-all" }}>
+              {subUrl}
+            </code>
+            <ButtonIcon name="copy" label={copiedSub ? "Copied!" : "Copy URL"} onClick={copySub} size="sm" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -848,7 +877,7 @@ export default function CalendarSettingsModal({ calendar, onClose, onSaved, onDe
           )}
           {tab === "share" && <ShareTab calendar={calendar} />}
           {tab === "subscriptions" && <SubscriptionsTab calendar={calendar} onChanged={onSubscriptionsChanged} />}
-          {tab === "export" && <ExportTab calendar={calendar} onImported={onSubscriptionsChanged} />}
+          {tab === "export" && <ExportTab calendar={calendar} onImported={onSubscriptionsChanged} onSaved={onSaved} />}
           {tab === "danger" && isOwner && <DeleteTab calendar={calendar} onDelete={onDelete} />}
         </div>
       </div>
