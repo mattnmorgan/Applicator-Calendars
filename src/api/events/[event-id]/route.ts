@@ -21,6 +21,8 @@ function parseEventData(record: any): EventData {
     exceptionDate: record.data.exceptionDate,
     isException: !!record.data.isException,
     deletedOccurrences: record.data.deletedOccurrences ? JSON.parse(record.data.deletedOccurrences) : [],
+    categoryId: record.data.categoryId || null,
+    icsSubscriptionId: record.data.icsSubscriptionId || null,
     createdBy: record.data.createdBy,
     createdAt: record.data.createdAt,
     updatedAt: record.data.updatedAt,
@@ -77,6 +79,7 @@ export async function PATCH(
     if (body.recurrenceRule !== undefined) {
       updates.recurrenceRule = body.recurrenceRule ? JSON.stringify(body.recurrenceRule) : undefined;
     }
+    if (body.categoryId !== undefined) (updates as any).categoryId = body.categoryId || null;
 
     const updated = await eventsRm.updateRecord(table, params.eventId, updates as any);
     return NextResponse.json(parseEventData(updated));

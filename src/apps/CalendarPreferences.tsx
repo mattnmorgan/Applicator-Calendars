@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button, Spinner } from "@applicator/sdk/components";
+import { ButtonIcon, Spinner } from "@applicator/sdk/components";
 import { UiContext } from "@applicator/sdk/context";
 
 interface Props {
@@ -44,7 +44,8 @@ export default function CalendarPreferences({ context: _context }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ defaultView }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to save");
+      if (!res.ok)
+        throw new Error((await res.json()).error || "Failed to save");
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
@@ -63,45 +64,56 @@ export default function CalendarPreferences({ context: _context }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 480 }}>
-      <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>Calendar Preferences</h3>
+    <div style={{ padding: 24, maxWidth: 560, color: "white" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Calendar Preferences</h3>
+        <ButtonIcon
+          name={saved ? "check" : "save"}
+          label={saving ? "Saving…" : "Save preferences"}
+          onClick={handleSave}
+          disabled={saving}
+        />
+      </div>
       <p style={{ margin: "0 0 24px", fontSize: 14, opacity: 0.6 }}>
         Customize how the Calendars app behaves for you.
       </p>
 
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>
-          Default Calendar View
-        </label>
-        <p style={{ margin: "0 0 10px", fontSize: 13, opacity: 0.6 }}>
-          When opening the Calendars app, this view will be used. If left as "Use calendar's default",
-          the selected calendar's configured default view will apply.
-        </p>
-        <select
-          value={defaultView}
-          onChange={(e) => setDefaultView(e.target.value)}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #334155",
-            borderRadius: 6,
-            fontSize: 14,
-            background: "#0f172a",
-            color: "#f1f5f9",
-            minWidth: 200,
-          }}
-        >
-          {VIEW_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+      {error && (
+        <div style={{ color: "#EF4444", fontSize: 13, marginBottom: 16 }}>{error}</div>
+      )}
+
+      {/* Preference rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Default view row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Default Calendar View</div>
+            <div style={{ fontSize: 13, opacity: 0.6 }}>
+              When opening the Calendars app, this view will be used. If left as "Use calendar's default", the selected calendar's configured default view will apply.
+            </div>
+          </div>
+          <select
+            value={defaultView}
+            onChange={(e) => setDefaultView(e.target.value)}
+            style={{
+              padding: "7px 10px",
+              border: "1px solid #334155",
+              borderRadius: 6,
+              fontSize: 13,
+              background: "#0f172a",
+              color: "#f1f5f9",
+              flexShrink: 0,
+            }}
+          >
+            {VIEW_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
-
-      {error && <div style={{ color: "#EF4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-      {saved && <div style={{ color: "#10B981", fontSize: 13, marginBottom: 12 }}>Preferences saved.</div>}
-
-      <Button variant="primary" onClick={handleSave} disabled={saving}>
-        Save Preferences
-      </Button>
     </div>
   );
 }

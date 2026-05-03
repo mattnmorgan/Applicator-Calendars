@@ -4,7 +4,7 @@ import React from "react";
 import { Spinner, Icon } from "@applicator/sdk/components";
 import { UiContext } from "@applicator/sdk/context";
 import { datetime } from "@applicator/sdk/utilities";
-import { CalendarData, EventOccurrence, ViewMode } from "@/src/types";
+import { CalendarData, CategoryData, EventOccurrence, ViewMode } from "@/src/types";
 import CalendarView from "@/src/components/CalendarView";
 import EventPanel from "@/src/components/EventPanel";
 
@@ -39,6 +39,7 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
   const viewType = (settings?.viewType || "week") as ViewMode;
 
   const [calendars, setCalendars] = React.useState<CalendarData[]>([]);
+  const [categories, setCategories] = React.useState<CategoryData[]>([]);
   const [events, setEvents] = React.useState<EventOccurrence[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [viewMode, setViewMode] = React.useState<ViewMode>(viewType);
@@ -63,15 +64,26 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
       setCalendars(filtered);
 
       if (filtered.length > 0) {
-        const params = new URLSearchParams({
-          calendarIds: filtered.map((c) => c.id).join(","),
-          start: start.toISOString(),
-          end: end.toISOString(),
-        });
-        const evRes = await fetch(`/api/calendars/events?${params}`);
+        const [evRes, ...catResults] = await Promise.all([
+          fetch(`/api/calendars/events?${new URLSearchParams({
+            calendarIds: filtered.map((c) => c.id).join(","),
+            start: start.toISOString(),
+            end: end.toISOString(),
+          })}`),
+          ...filtered.map((c) => fetch(`/api/calendars/calendars/${c.id}/categories`)),
+        ]);
         const evData = await evRes.json();
         setEvents(evData.events || []);
         setLastRefreshed(new Date());
+
+        const allCats: CategoryData[] = [];
+        for (const catRes of catResults) {
+          if (catRes.ok) {
+            const catData = await catRes.json();
+            allCats.push(...(catData.categories || []));
+          }
+        }
+        setCategories(allCats);
       }
     } catch {
       // silently fail in widget context
@@ -134,6 +146,7 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
         currentDate={currentDate}
         events={events}
         calendars={calendars}
+        categories={categories}
         onEventClick={(ev) => setSelectedEvent(ev)}
         onNavigate={handleNavigate as any}
         lastRefreshed={lastRefreshed}
@@ -148,6 +161,7 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
           <EventPanel
             event={selectedEvent}
             calendar={calendars.find((c) => c.id === selectedEvent.calendarId)}
+            category={categories.find((c) => c.id === selectedEvent.categoryId) || null}
             onClose={() => setSelectedEvent(null)}
             onEdit={() => {}}
             onDelete={() => {}}

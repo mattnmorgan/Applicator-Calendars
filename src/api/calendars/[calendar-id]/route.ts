@@ -68,6 +68,7 @@ export async function DELETE(
     const eventsRm = context.recordManager("calendars", "event");
     const remindersRm = context.recordManager("calendars", "reminder");
     const subsRm = context.recordManager("calendars", "ics_subscription");
+    const categoriesRm = context.recordManager("calendars", "category");
 
     const eventResult = await eventsRm.readRecords({ fields: { calendarId: params.calendarId }, limit: 5000 });
     const eventIds = eventResult.records.map((r: any) => r.id);
@@ -87,6 +88,11 @@ export async function DELETE(
     const subsResult = await subsRm.readRecords({ fields: { calendarId: params.calendarId }, limit: 200 });
     if (subsResult.records.length > 0) {
       await subsRm.bulkDeleteRecords(subsResult.records.map((r: any) => r.id));
+    }
+
+    const catsResult = await categoriesRm.readRecords({ fields: { calendarId: params.calendarId }, limit: 500 });
+    if (catsResult.records.length > 0) {
+      await categoriesRm.bulkDeleteRecords(catsResult.records.map((r: any) => r.id));
     }
 
     await deleteAllCalendarShares(context, params.calendarId);

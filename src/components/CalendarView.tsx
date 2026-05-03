@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { ButtonIcon, Icon } from "@applicator/sdk/components";
+import { ButtonIcon, Icon, Tooltip } from "@applicator/sdk/components";
 import { datetime } from "@applicator/sdk/utilities";
-import { EventOccurrence, CalendarData, ViewMode } from "@/src/types";
+import { EventOccurrence, CalendarData, CategoryData, ViewMode } from "@/src/types";
 
 const { addDays, getWeekStart, formatDate, parseDate, getMonthStart, formatTime, formatDayHeader, getTimeSinceRefresh } = datetime;
 
@@ -12,19 +12,26 @@ interface Props {
   currentDate: Date;
   events: EventOccurrence[];
   calendars: CalendarData[];
+  categories?: CategoryData[];
   onEventClick: (event: EventOccurrence) => void;
   onNavigate: (direction: "prev" | "next" | "today") => void;
   lastRefreshed: Date | null;
   onRefresh: () => void;
   refreshing?: boolean;
+  onNewEvent?: () => void;
+  onSettings?: () => void;
 }
 
 const HOUR_HEIGHT = 56;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const pad = (n: number) => String(n).padStart(2, "0");
 
-function getEventColor(ev: EventOccurrence, calendars: CalendarData[]): string {
+function getEventColor(ev: EventOccurrence, calendars: CalendarData[], categories: CategoryData[]): string {
   if (ev.color) return ev.color;
+  if (ev.categoryId) {
+    const cat = categories.find((c) => c.id === ev.categoryId);
+    if (cat) return cat.color;
+  }
   const cal = calendars.find((c) => c.id === ev.calendarId);
   return cal?.color || "#3B82F6";
 }
@@ -64,10 +71,11 @@ function getDateRangeLabel(viewMode: ViewMode, currentDate: Date): string {
 
 // ─── Time Grid View ─────────────────────────────────────────────────────────
 
-function TimeGridView({ days, events, calendars, onEventClick }: {
+function TimeGridView({ days, events, calendars, categories, onEventClick }: {
   days: Date[];
   events: EventOccurrence[];
   calendars: CalendarData[];
+  categories: CategoryData[];
   onEventClick: (ev: EventOccurrence) => void;
 }) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -85,7 +93,7 @@ function TimeGridView({ days, events, calendars, onEventClick }: {
   const todayStr = formatDate(now);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", minHeight: 0 }}>
       {/* Day header */}
       <div style={{ display: "flex", borderBottom: "1px solid #334155", flexShrink: 0 }}>
         <div style={{ width: 56, flexShrink: 0 }} />
@@ -128,7 +136,7 @@ function TimeGridView({ days, events, calendars, onEventClick }: {
                     key={ev.id + ev.occurrenceDate}
                     onClick={() => onEventClick(ev)}
                     style={{
-                      background: getEventColor(ev, calendars),
+                      background: getEventColor(ev, calendars, categories),
                       color: "#fff",
                       border: "none",
                       borderRadius: 3,
@@ -152,7 +160,7 @@ function TimeGridView({ days, events, calendars, onEventClick }: {
       )}
 
       {/* Time grid */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", position: "relative", minHeight: 0 }}>
         <div style={{ display: "flex", position: "relative", height: 24 * HOUR_HEIGHT }}>
           {/* Hour labels */}
           <div style={{ width: 56, flexShrink: 0, position: "relative" }}>
@@ -230,7 +238,7 @@ function TimeGridView({ days, events, calendars, onEventClick }: {
                         left: 2,
                         right: 2,
                         height: heightPx,
-                        background: getEventColor(ev, calendars),
+                        background: getEventColor(ev, calendars, categories),
                         color: "#fff",
                         border: "none",
                         borderRadius: 4,
@@ -264,11 +272,13 @@ function TimeGridView({ days, events, calendars, onEventClick }: {
 
 // ─── Month View ──────────────────────────────────────────────────────────────
 
-function MonthView({ currentDate, events, calendars, onEventClick }: {
+function MonthView({ currentDate, events, calendars, categories, onEventClick, onDayClick }: {
   currentDate: Date;
   events: EventOccurrence[];
   calendars: CalendarData[];
+  categories: CategoryData[];
   onEventClick: (ev: EventOccurrence) => void;
+  onDayClick: (day: Date) => void;
 }) {
   const monthStart = getMonthStart(currentDate);
   const weekStart = getWeekStart(monthStart);
@@ -313,30 +323,36 @@ function MonthView({ currentDate, events, calendars, onEventClick }: {
                     padding: "4px",
                     overflow: "hidden",
                     opacity: isCurrentMonth ? 1 : 0.4,
+                    cursor: "pointer",
                   }}
+                  onClick={() => onDayClick(day)}
                 >
-                  <div style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    background: isToday ? "#3B82F6" : "transparent",
-                    color: isToday ? "#fff" : "inherit",
-                    fontWeight: isToday ? 700 : 400,
-                    fontSize: 13,
-                    marginBottom: 2,
-                  }}>
-                    {day.getUTCDate()}
-                  </div>
+                  <Tooltip text="View day" placement="top">
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        background: isToday ? "#3B82F6" : "transparent",
+                        color: isToday ? "#fff" : "inherit",
+                        fontWeight: isToday ? 700 : 400,
+                        fontSize: 13,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {day.getUTCDate()}
+                    </div>
+                  </Tooltip>
                   <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                     {dayEvents.slice(0, maxVisible).map((ev) => (
                       <button
                         key={ev.id + ev.occurrenceDate}
-                        onClick={() => onEventClick(ev)}
+                        onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
                         style={{
-                          background: getEventColor(ev, calendars),
+                          background: getEventColor(ev, calendars, categories),
                           color: "#fff",
                           border: "none",
                           borderRadius: 2,
@@ -355,7 +371,12 @@ function MonthView({ currentDate, events, calendars, onEventClick }: {
                       </button>
                     ))}
                     {overflow > 0 && (
-                      <span style={{ fontSize: 11, opacity: 0.6, paddingLeft: 4 }}>+{overflow} more</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDayClick(day); }}
+                        style={{ fontSize: 11, opacity: 0.6, paddingLeft: 4, background: "none", border: "none", color: "inherit", cursor: "pointer", textAlign: "left" }}
+                      >
+                        +{overflow} more
+                      </button>
                     )}
                   </div>
                 </div>
@@ -370,9 +391,10 @@ function MonthView({ currentDate, events, calendars, onEventClick }: {
 
 // ─── Agenda View ─────────────────────────────────────────────────────────────
 
-function AgendaView({ events, calendars, onEventClick }: {
+function AgendaView({ events, calendars, categories, onEventClick }: {
   events: EventOccurrence[];
   calendars: CalendarData[];
+  categories: CategoryData[];
   onEventClick: (ev: EventOccurrence) => void;
 }) {
   const grouped: Record<string, EventOccurrence[]> = {};
@@ -391,7 +413,7 @@ function AgendaView({ events, calendars, onEventClick }: {
   }
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px", minHeight: 0 }}>
       {dates.map((dateStr) => {
         const d = parseDate(dateStr);
         const label = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -420,7 +442,7 @@ function AgendaView({ events, calendars, onEventClick }: {
                     transition: "background 0.1s",
                   }}
                 >
-                  <div style={{ width: 4, height: "100%", minHeight: 20, borderRadius: 2, background: getEventColor(ev, calendars), flexShrink: 0, alignSelf: "stretch" }} />
+                  <div style={{ width: 4, height: "100%", minHeight: 20, borderRadius: 2, background: getEventColor(ev, calendars, categories), flexShrink: 0, alignSelf: "stretch" }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{ev.name}</div>
                     {!ev.allDay && (
@@ -441,6 +463,113 @@ function AgendaView({ events, calendars, onEventClick }: {
   );
 }
 
+// ─── Day Flyout ───────────────────────────────────────────────────────────────
+
+function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }: {
+  day: Date;
+  events: EventOccurrence[];
+  calendars: CalendarData[];
+  categories: CategoryData[];
+  onEventClick: (ev: EventOccurrence) => void;
+  onClose: () => void;
+}) {
+  const [visible, setVisible] = React.useState(false);
+
+  React.useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const dayStr = formatDate(day);
+  const dayEvents = events
+    .filter((e) => e.occurrenceDate === dayStr)
+    .sort((a, b) => {
+      if (a.allDay && !b.allDay) return -1;
+      if (!a.allDay && b.allDay) return 1;
+      return a.occurrenceStart.localeCompare(b.occurrenceStart);
+    });
+
+  const label = day.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "45%",
+        minWidth: 280,
+        background: "#1e293b",
+        borderLeft: "1px solid #334155",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 20,
+        transform: visible ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.25s ease",
+        boxShadow: "-4px 0 24px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 16px",
+          borderBottom: "1px solid #334155",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
+        <ButtonIcon name="close" label="Close" onClick={onClose} size="sm" />
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px" }}>
+        {dayEvents.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.5, fontSize: 14 }}>
+            No events this day
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
+            {dayEvents.map((ev) => (
+              <button
+                key={ev.id + ev.occurrenceDate}
+                onClick={() => onEventClick(ev)}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  padding: "8px 12px",
+                  border: "1px solid #334155",
+                  borderRadius: 8,
+                  background: "#0f172a",
+                  color: "#e2e8f0",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  width: "100%",
+                }}
+              >
+                <div style={{ width: 4, borderRadius: 2, background: getEventColor(ev, calendars, categories), flexShrink: 0, alignSelf: "stretch", minHeight: 20 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{ev.name}</div>
+                  {ev.allDay ? (
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>All day</div>
+                  ) : (
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>
+                      {formatTime(ev.occurrenceStart)} – {formatTime(ev.occurrenceEnd)}
+                    </div>
+                  )}
+                  {ev.location && <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>{ev.location}</div>}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── View Mode Tabs ──────────────────────────────────────────────────────────
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
@@ -457,18 +586,28 @@ export default function CalendarView({
   currentDate,
   events,
   calendars,
+  categories = [],
   onEventClick,
   onNavigate,
   lastRefreshed,
   onRefresh,
   refreshing,
+  onNewEvent,
+  onSettings,
 }: Props) {
   const days = getDaysForView(viewMode, currentDate);
   const dateLabel = getDateRangeLabel(viewMode, currentDate);
   const refreshLabel = lastRefreshed ? getTimeSinceRefresh(lastRefreshed) : "";
 
+  const [selectedDay, setSelectedDay] = React.useState<Date | null>(null);
+
+  function handleDayEventClick(ev: EventOccurrence) {
+    setSelectedDay(null);
+    onEventClick(ev);
+  }
+
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, position: "relative" }}>
       {/* Toolbar */}
       <div
         style={{
@@ -518,27 +657,47 @@ export default function CalendarView({
         {/* Date label */}
         <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{dateLabel}</span>
 
-        {/* Refresh */}
+        {/* Refresh + new event + settings */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {refreshLabel && (
             <span style={{ fontSize: 12, opacity: 0.5 }}>Updated {refreshLabel}</span>
           )}
           <ButtonIcon name="refresh" label="Refresh" onClick={onRefresh} size="sm" />
+          {onNewEvent && <ButtonIcon name="plus" label="New event" onClick={onNewEvent} size="sm" />}
+          {onSettings && <ButtonIcon name="settings" label="Calendar settings" onClick={onSettings} size="sm" />}
         </div>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
         {(viewMode === "today" || viewMode === "3days" || viewMode === "week") && days.length > 0 && (
-          <TimeGridView days={days} events={events} calendars={calendars} onEventClick={onEventClick} />
+          <TimeGridView days={days} events={events} calendars={calendars} categories={categories} onEventClick={onEventClick} />
         )}
         {viewMode === "month" && (
-          <MonthView currentDate={currentDate} events={events} calendars={calendars} onEventClick={onEventClick} />
+          <MonthView currentDate={currentDate} events={events} calendars={calendars} categories={categories} onEventClick={onEventClick} onDayClick={(day) => setSelectedDay(day)} />
         )}
         {viewMode === "agenda" && (
-          <AgendaView events={events} calendars={calendars} onEventClick={onEventClick} />
+          <AgendaView events={events} calendars={calendars} categories={categories} onEventClick={onEventClick} />
         )}
       </div>
+
+      {/* Day flyout overlay (month view day click) */}
+      {selectedDay && (
+        <>
+          <div
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 10 }}
+            onClick={() => setSelectedDay(null)}
+          />
+          <DayFlyout
+            day={selectedDay}
+            events={events}
+            calendars={calendars}
+            categories={categories}
+            onEventClick={handleDayEventClick}
+            onClose={() => setSelectedDay(null)}
+          />
+        </>
+      )}
     </div>
   );
 }

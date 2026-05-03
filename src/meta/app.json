@@ -1,7 +1,7 @@
 {
   "id": "calendars",
   "name": "Calendars",
-  "version": { "major": 1, "minor": 3, "dev": 0 },
+  "version": { "major": 1, "minor": 5, "dev": 0 },
   "author": "Matthew Morgan",
   "contactEmail": "matthew@morgantech.info",
   "description": "Maintain schedules, agendas, and important dates in a calendar form",
@@ -155,6 +155,12 @@
           "description": "JSON array of YYYY-MM-DD dates of deleted occurrences"
         },
         {
+          "name": "categoryId",
+          "type": "relationship",
+          "relatedTo": "category",
+          "description": "Category assigned to this event"
+        },
+        {
           "name": "icsSubscriptionId",
           "type": "string",
           "description": "ICS subscription ID if this event was synced from an ICS feed"
@@ -255,6 +261,50 @@
           "name": "lastSynced",
           "type": "string",
           "description": "ISO datetime of last successful sync"
+        },
+        {
+          "name": "createdAt",
+          "type": "string",
+          "required": true,
+          "description": "ISO creation timestamp"
+        },
+        {
+          "name": "updatedAt",
+          "type": "string",
+          "required": true,
+          "description": "ISO last-updated timestamp"
+        }
+      ]
+    },
+    {
+      "name": "category",
+      "description": "A named category for grouping events within a calendar",
+      "fields": [
+        {
+          "name": "calendarId",
+          "type": "relationship",
+          "relatedTo": "calendar",
+          "required": true,
+          "description": "Parent calendar"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "description": "Category name"
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "required": true,
+          "description": "Category color (hex)"
+        },
+        {
+          "name": "ownerId",
+          "type": "relationship",
+          "relatedTo": "system:users",
+          "required": true,
+          "description": "User who created the category"
         },
         {
           "name": "createdAt",
@@ -484,6 +534,26 @@
       "path": "calendars/[calendar-id]/export",
       "method": "GET",
       "description": "Export calendar as JSON (events, subscriptions, icon)"
+    },
+    {
+      "path": "calendars/[calendar-id]/categories",
+      "method": "GET",
+      "description": "List categories for a calendar"
+    },
+    {
+      "path": "calendars/[calendar-id]/categories",
+      "method": "POST",
+      "description": "Create a new category"
+    },
+    {
+      "path": "calendars/[calendar-id]/categories/[category-id]",
+      "method": "PATCH",
+      "description": "Update a category name or color"
+    },
+    {
+      "path": "calendars/[calendar-id]/categories/[category-id]",
+      "method": "DELETE",
+      "description": "Delete a category (scope=migrate|delete)"
     },
     {
       "path": "preferences",

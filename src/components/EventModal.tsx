@@ -2,11 +2,12 @@
 
 import React from "react";
 import { Modal, Button, ButtonIcon, DynamicInput } from "@applicator/sdk/components";
-import { EventOccurrence, RecurrenceRule, ReminderData } from "@/src/types";
+import { EventOccurrence, RecurrenceRule, ReminderData, CategoryData } from "@/src/types";
 
 interface Props {
   calendarId: string;
   calendarColor?: string;
+  categories?: CategoryData[];
   event?: EventOccurrence | null;
   defaultDate?: Date;
   onClose: () => void;
@@ -55,7 +56,7 @@ function localDatetimeToISO(local: string): string {
   return d.toISOString();
 }
 
-export default function EventModal({ calendarId, calendarColor, event, defaultDate, onClose, onSaved }: Props) {
+export default function EventModal({ calendarId, calendarColor, categories = [], event, defaultDate, onClose, onSaved }: Props) {
   const isEditing = !!event;
 
   const defaultStart = defaultDate || new Date();
@@ -89,6 +90,10 @@ export default function EventModal({ calendarId, calendarColor, event, defaultDa
   const [remindersLoaded, setRemindersLoaded] = React.useState(false);
   const [reminderValue, setReminderValue] = React.useState(30);
   const [reminderUnit, setReminderUnit] = React.useState<ReminderUnit>("minutes");
+
+  const [categoryId, setCategoryId] = React.useState<string>(
+    event?.categoryId || ""
+  );
 
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -179,6 +184,7 @@ export default function EventModal({ calendarId, calendarColor, event, defaultDa
         isRecurring,
         recurrenceRule,
         calendarId,
+        categoryId: categoryId || null,
       };
 
       let eventId: string;
@@ -260,6 +266,23 @@ export default function EventModal({ calendarId, calendarColor, event, defaultDa
             />
           </div>
         </div>
+
+        {/* Category */}
+        {categories.length > 0 && (
+          <DynamicInput
+            input={{
+              id: "categoryId",
+              label: "Category",
+              type: "select",
+              options: [
+                { value: "", label: "None" },
+                ...categories.map((c) => ({ value: c.id, label: c.name })),
+              ],
+            }}
+            value={categoryId}
+            onChange={(_, v) => setCategoryId(v)}
+          />
+        )}
 
         {/* Status + Color inline, above description */}
         <div style={{ display: "flex", gap: 12 }}>

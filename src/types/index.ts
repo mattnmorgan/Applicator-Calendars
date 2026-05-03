@@ -80,6 +80,24 @@ export interface IcsSubscriptionData {
   createdAt: string;
 }
 
+export interface CategoryRecord {
+  calendarId: string;
+  name: string;
+  color: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CategoryData {
+  id: string;
+  calendarId: string;
+  name: string;
+  color: string;
+  ownerId: string;
+  createdAt: string;
+}
+
 export interface EventData {
   id: string;
   calendarId: string;
@@ -97,6 +115,8 @@ export interface EventData {
   exceptionDate?: string;
   isException: boolean;
   deletedOccurrences: string[];
+  categoryId?: string | null;
+  icsSubscriptionId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -118,6 +138,8 @@ export interface EventOccurrence {
   recurrenceRule?: RecurrenceRule;
   seriesId?: string;
   isException: boolean;
+  categoryId?: string | null;
+  icsSubscriptionId?: string | null;
 }
 
 export interface ReminderData {

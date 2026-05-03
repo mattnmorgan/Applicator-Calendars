@@ -3,13 +3,14 @@
 import React from "react";
 import { ButtonIcon, Icon, Button, ConfirmModal } from "@applicator/sdk/components";
 import { datetime } from "@applicator/sdk/utilities";
-import { EventOccurrence, CalendarData } from "@/src/types";
+import { EventOccurrence, CalendarData, CategoryData } from "@/src/types";
 
 const { formatDatetime } = datetime;
 
 interface Props {
   event: EventOccurrence;
   calendar: CalendarData | undefined;
+  category?: CategoryData | null;
   onClose: () => void;
   onEdit: () => void;
   onDelete: (scope: "one" | "following" | "all") => void;
@@ -24,7 +25,7 @@ function statusLabel(s: string): string {
   return "Free";
 }
 
-export default function EventPanel({ event, calendar, onClose, onEdit, onDelete, canEdit }: Props) {
+export default function EventPanel({ event, calendar, category = null, onClose, onEdit, onDelete, canEdit }: Props) {
   const [confirmDeleteScope, setConfirmDeleteScope] = React.useState<DeleteScope | null>(null);
   const [showDeleteScopeMenu, setShowDeleteScopeMenu] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
@@ -96,8 +97,8 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
           </span>
         </div>
         <div style={{ display: "flex", gap: 4 }}>
-          {canEdit && <ButtonIcon name="edit" label="Edit event" onClick={onEdit} size="sm" />}
-          {canEdit && <ButtonIcon name="trash" label="Delete event" onClick={handleDeleteClick} size="sm" subvariant="danger" />}
+          {canEdit && !event.icsSubscriptionId && <ButtonIcon name="edit" label="Edit event" onClick={onEdit} size="sm" />}
+          {canEdit && !event.icsSubscriptionId && <ButtonIcon name="trash" label="Delete event" onClick={handleDeleteClick} size="sm" subvariant="danger" />}
           <ButtonIcon name="close" label="Close" onClick={onClose} size="sm" />
         </div>
       </div>
@@ -160,6 +161,21 @@ export default function EventPanel({ event, calendar, onClose, onEdit, onDelete,
               <Icon name="refresh" size={14} />
             </span>
             <span>Recurring event</span>
+          </div>
+        )}
+
+        {category && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <span
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: category.color,
+                flexShrink: 0,
+              }}
+            />
+            <span>{category.name}</span>
           </div>
         )}
       </div>

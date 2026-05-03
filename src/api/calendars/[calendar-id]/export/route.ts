@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiContext } from "@applicator/sdk/context";
-import { EventRecord, IcsSubscriptionRecord } from "@/src/types";
+import { EventRecord, IcsSubscriptionRecord, CategoryRecord } from "@/src/types";
 import { getCalendarAccess } from "@/src/lib/calendar-access";
 
 export async function GET(
@@ -43,6 +43,15 @@ export async function GET(
       color: r.data.color || "",
     }));
 
+    const catRm = context.recordManager<CategoryRecord>("calendars", "category");
+    const allCats = await catRm.readRecords({ fields: { calendarId: params.calendarId }, limit: 500 });
+    const categories = allCats.records
+      .sort((a: any, b: any) => (a.data.name as string).localeCompare(b.data.name))
+      .map((r: any) => ({
+        name: r.data.name,
+        color: r.data.color,
+      }));
+
     let icon: string | null = null;
     if (calData.hasIcon) {
       try {
@@ -67,6 +76,7 @@ export async function GET(
       icon,
       events,
       subscriptions,
+      categories,
     };
 
     const json = JSON.stringify(exportData, null, 2);

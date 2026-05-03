@@ -20,6 +20,8 @@ function makeOccurrence(event: EventData, occStart: Date, occEnd: Date): EventOc
     recurrenceRule: event.recurrenceRule,
     seriesId: event.seriesId,
     isException: event.isException,
+    categoryId: event.categoryId,
+    icsSubscriptionId: event.icsSubscriptionId,
   };
 }
 

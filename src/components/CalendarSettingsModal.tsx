@@ -8,6 +8,7 @@ interface Props {
   calendar: CalendarData;
   onClose: () => void;
   onSaved: (updates: Partial<CalendarData>) => void;
+  onDelete: () => void;
 }
 
 const VIEW_OPTIONS = [
@@ -435,39 +436,35 @@ function SubscriptionsTab({ calendar }: { calendar: CalendarData }) {
       {canEdit && (
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>Add subscription</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Name"
-                style={{ ...INPUT_STYLE, flex: 1 }}
-              />
-              <input
-                type="color"
-                value={newColor}
-                onChange={(e) => setNewColor(e.target.value)}
-                title="Subscription color"
-                style={{ width: 42, height: 38, border: "1px solid #334155", borderRadius: 6, background: "#0f172a", cursor: "pointer", padding: 2, flexShrink: 0 }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="url"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="https://example.com/calendar.ics"
-                style={{ ...INPUT_STYLE, flex: 1 }}
-              />
-              <Button
-                variant="primary"
-                onClick={handleAdd}
-                disabled={adding || !newName.trim() || !newUrl.trim()}
-              >
-                {adding ? "Adding…" : "Add"}
-              </Button>
-            </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Name"
+              style={{ ...INPUT_STYLE, flex: 1 }}
+            />
+            <input
+              type="url"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              placeholder="https://example.com/calendar.ics"
+              style={{ ...INPUT_STYLE, flex: 2 }}
+            />
+            <input
+              type="color"
+              value={newColor}
+              onChange={(e) => setNewColor(e.target.value)}
+              title="Subscription color"
+              style={{ width: 34, height: 34, border: "1px solid #334155", borderRadius: 6, background: "#0f172a", cursor: "pointer", padding: 2, flexShrink: 0 }}
+            />
+            <ButtonIcon
+              name="plus"
+              label="Add subscription"
+              onClick={handleAdd}
+              disabled={adding || !newName.trim() || !newUrl.trim()}
+              size="sm"
+            />
           </div>
         </div>
       )}
@@ -580,10 +577,55 @@ function ExportTab({ calendar }: { calendar: CalendarData }) {
   );
 }
 
+// ─── Danger tab ──────────────────────────────────────────────────────────────
+
+function DangerTab({ calendar, onDelete }: { calendar: CalendarData; onDelete: () => void }) {
+  const [confirming, setConfirming] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/calendars/calendars/${calendar.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to delete");
+      onDelete();
+    } catch (e: any) {
+      setError(e.message);
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ padding: 16, border: "1px solid #7f1d1d", borderRadius: 8, background: "rgba(127, 29, 29, 0.08)" }}>
+        <div style={{ fontWeight: 600, fontSize: 14, color: "#fca5a5", marginBottom: 4 }}>Delete Calendar</div>
+        <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+          Permanently delete "{calendar.name}" and all its events. This cannot be undone and all shared access will be revoked.
+        </div>
+        {!confirming ? (
+          <Button variant="danger" onClick={() => setConfirming(true)}>Delete Calendar</Button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 13, color: "#fca5a5", fontWeight: 500 }}>Are you absolutely sure? This cannot be undone.</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button variant="danger" onClick={handleDelete} disabled={deleting}>
+                {deleting ? "Deleting…" : "Yes, delete permanently"}
+              </Button>
+              <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+            </div>
+          </div>
+        )}
+      </div>
+      {error && <div style={{ color: "#EF4444", fontSize: 13 }}>{error}</div>}
+    </div>
+  );
+}
+
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export default function CalendarSettingsModal({ calendar, onClose, onSaved }: Props) {
-  const [tab, setTab] = React.useState<"details" | "share" | "subscriptions" | "export">("details");
+export default function CalendarSettingsModal({ calendar, onClose, onSaved, onDelete }: Props) {
+  const [tab, setTab] = React.useState<"details" | "share" | "subscriptions" | "export" | "danger">("details");
 
   // Details tab state — lifted here so footer Save button can call handleSave
   const [name, setName] = React.useState(calendar.name);
@@ -628,8 +670,21 @@ export default function CalendarSettingsModal({ calendar, onClose, onSaved }: Pr
     }
   }
 
-  const tabs = ["details", "share", "subscriptions", "export"] as const;
-  const tabLabels: Record<string, string> = { details: "Details", share: "Share", subscriptions: "Subscriptions", export: "Export" };
+  const isOwner = calendar.role === "owner";
+  const tabs = [
+    "details",
+    "share",
+    "subscriptions",
+    "export",
+    ...(isOwner ? ["danger"] : []),
+  ] as const;
+  const tabLabels: Record<string, string> = {
+    details: "Details",
+    share: "Share",
+    subscriptions: "Subscriptions",
+    export: "Export",
+    danger: "Danger",
+  };
 
   const footer = tab === "details" ? (
     <>
@@ -646,13 +701,13 @@ export default function CalendarSettingsModal({ calendar, onClose, onSaved }: Pr
         {tabs.map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => setTab(t as any)}
             style={{
               padding: "10px 18px",
               border: "none",
               borderBottom: tab === t ? "2px solid #3B82F6" : "2px solid transparent",
               background: "transparent",
-              color: tab === t ? "#f1f5f9" : "#94a3b8",
+              color: tab === t ? "#f1f5f9" : t === "danger" ? "#fca5a5" : "#94a3b8",
               fontSize: 14,
               fontWeight: tab === t ? 600 : 400,
               cursor: "pointer",
@@ -681,6 +736,7 @@ export default function CalendarSettingsModal({ calendar, onClose, onSaved }: Pr
         {tab === "share" && <ShareTab calendar={calendar} />}
         {tab === "subscriptions" && <SubscriptionsTab calendar={calendar} />}
         {tab === "export" && <ExportTab calendar={calendar} />}
+        {tab === "danger" && isOwner && <DangerTab calendar={calendar} onDelete={onDelete} />}
       </div>
     </Modal>
   );
