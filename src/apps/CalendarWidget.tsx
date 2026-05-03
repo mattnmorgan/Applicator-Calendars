@@ -122,6 +122,26 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
     });
   }
 
+  // Measure the container height when the month view is rendered and use it
+  // to bound all other views, giving them a fixed height so their internal
+  // scroll containers (time grid, agenda list) work correctly.
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [monthHeight, setMonthHeight] = React.useState<number | null>(null);
+
+  React.useLayoutEffect(() => {
+    if (viewMode !== "month") return;
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const h = el.getBoundingClientRect().height;
+      if (h > 0) setMonthHeight(h);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [viewMode]);
+
+  const containerHeight = monthHeight != null ? monthHeight : "100%";
+
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 120 }}>
@@ -140,7 +160,7 @@ export default function CalendarWidget({ context: _context, settings }: Props) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", position: "relative", color: "#e2e8f0" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", height: containerHeight, overflow: "hidden", position: "relative", color: "#e2e8f0" }}>
       <CalendarView
         viewMode={viewMode}
         currentDate={currentDate}

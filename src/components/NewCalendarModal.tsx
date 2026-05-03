@@ -14,7 +14,7 @@ interface ImportPayload {
 interface Props {
   onClose: () => void;
   onCreate: (data: { name: string; description: string; color: string }) => Promise<void>;
-  onImport: (calData: { name: string; description: string; color: string }, payload: ImportPayload) => Promise<void>;
+  onImport: (calData: { name: string; description: string; color: string; defaultView?: string }, payload: ImportPayload) => Promise<void>;
 }
 
 export default function NewCalendarModal({ onClose, onCreate, onImport }: Props) {
@@ -81,6 +81,7 @@ export default function NewCalendarModal({ onClose, onCreate, onImport }: Props)
           name: importName.trim(),
           description: importParsed.calendar.description || "",
           color: importParsed.calendar.color || "#3B82F6",
+          defaultView: importParsed.calendar.defaultView || "week",
         },
         {
           events: importParsed.events || [],

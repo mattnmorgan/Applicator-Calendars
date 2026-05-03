@@ -136,7 +136,7 @@
         // Delete existing synced events for this subscription
         const existing = await sdk<{ records: any[] }>("records.list", {
           table: "event",
-          filters: { icsSubscriptionId: id },
+          filters: [{ field: "icsSubscriptionId", operator: "=", value: id }],
           limit: 5000,
         });
         for (const ev of existing.records) {

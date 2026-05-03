@@ -1,7 +1,7 @@
 {
   "id": "calendars",
   "name": "Calendars",
-  "version": { "major": 1, "minor": 5, "dev": 9 },
+  "version": { "major": 1, "minor": 5, "dev": 14 },
   "author": "Matthew Morgan",
   "contactEmail": "matthew@morgantech.info",
   "description": "Maintain schedules, agendas, and important dates in a calendar form",
@@ -388,8 +388,8 @@
     {
       "name": "reminder-check",
       "label": "Event Reminder Check",
-      "description": "Checks every 5 minutes for upcoming events with reminders and sends notifications",
-      "cron": "*/5 * * * *"
+      "description": "Checks every minute for upcoming events with reminders and sends notifications",
+      "cron": "* * * * *"
     },
     {
       "name": "ics-sync",
