@@ -3,9 +3,15 @@
 import React from "react";
 import { ButtonIcon, Icon, Button, ConfirmModal } from "@applicator/sdk/components";
 import { datetime } from "@applicator/sdk/utilities";
-import { EventOccurrence, CalendarData, CategoryData } from "@/src/types";
+import { EventOccurrence, CalendarData, CategoryData, ReminderData } from "@/src/types";
 
 const { formatDatetime } = datetime;
+
+function formatReminder(minutesBefore: number): string {
+  if (minutesBefore % 1440 === 0) return `${minutesBefore / 1440} day${minutesBefore / 1440 !== 1 ? "s" : ""} before`;
+  if (minutesBefore % 60 === 0) return `${minutesBefore / 60} hour${minutesBefore / 60 !== 1 ? "s" : ""} before`;
+  return `${minutesBefore} minute${minutesBefore !== 1 ? "s" : ""} before`;
+}
 
 interface Props {
   event: EventOccurrence;
@@ -30,6 +36,15 @@ export default function EventPanel({ event, calendar, category = null, onClose, 
   const [showDeleteScopeMenu, setShowDeleteScopeMenu] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [visible, setVisible] = React.useState(false);
+  const [reminders, setReminders] = React.useState<ReminderData[]>([]);
+
+  React.useEffect(() => {
+    if (!event.id || event.icsSubscriptionId) return;
+    fetch(`/api/calendars/events/${event.id}/reminders`)
+      .then((r) => r.ok ? r.json() : { reminders: [] })
+      .then((data) => setReminders(data.reminders || []))
+      .catch(() => {});
+  }, [event.id, event.icsSubscriptionId]);
 
   // Trigger slide-in on mount
   React.useLayoutEffect(() => {
@@ -176,6 +191,19 @@ export default function EventPanel({ event, calendar, category = null, onClose, 
               }}
             />
             <span>{category.name}</span>
+          </div>
+        )}
+
+        {reminders.length > 0 && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13 }}>
+            <span style={{ opacity: 0.5, marginTop: 1, flexShrink: 0 }}>
+              <Icon name="bell" size={14} />
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {reminders.map((r) => (
+                <span key={r.id}>{formatReminder(r.minutesBefore)}</span>
+              ))}
+            </div>
           </div>
         )}
       </div>
