@@ -1,3 +1,5 @@
+import { ics } from "@applicator/sdk/utilities";
+
 export interface ParsedICSEvent {
   uid: string;
   summary: string;
@@ -45,14 +47,14 @@ function buildEvent(
   rawNames: Record<string, string>
 ): ParsedICSEvent | null {
   const uid = props["UID"];
-  const summary = icsUnescape(props["SUMMARY"] || "");
+  const summary = ics.icsUnescape(props["SUMMARY"] || "");
   if (!uid || !summary) return null;
 
   const rawStart = rawNames["DTSTART"] || "";
   const allDay = rawStart.includes("VALUE=DATE") && !rawStart.includes("DATE-TIME");
 
-  const start = parseICSDate(props["DTSTART"], allDay);
-  const end = parseICSDate(props["DTEND"] || props["DTSTART"], allDay);
+  const start = ics.parseICSDate(props["DTSTART"], allDay);
+  const end = ics.parseICSDate(props["DTEND"] || props["DTSTART"], allDay);
   if (!start || !end) return null;
 
   const transp = (props["TRANSP"] || "").toUpperCase();
@@ -64,33 +66,11 @@ function buildEvent(
   return {
     uid,
     summary,
-    description: props["DESCRIPTION"] ? icsUnescape(props["DESCRIPTION"]) : undefined,
-    location: props["LOCATION"] ? icsUnescape(props["LOCATION"]) : undefined,
+    description: props["DESCRIPTION"] ? ics.icsUnescape(props["DESCRIPTION"]) : undefined,
+    location: props["LOCATION"] ? ics.icsUnescape(props["LOCATION"]) : undefined,
     startDate: start,
     endDate: end,
     allDay,
     status,
   };
-}
-
-function parseICSDate(val: string | undefined, allDay: boolean): string | null {
-  if (!val) return null;
-  try {
-    if (allDay) {
-      return `${val.slice(0, 4)}-${val.slice(4, 6)}-${val.slice(6, 8)}T00:00:00.000Z`;
-    }
-    const y = val.slice(0, 4), mo = val.slice(4, 6), d = val.slice(6, 8);
-    const h = val.slice(9, 11), mn = val.slice(11, 13), s = val.slice(13, 15);
-    return new Date(`${y}-${mo}-${d}T${h}:${mn}:${s}Z`).toISOString();
-  } catch {
-    return null;
-  }
-}
-
-function icsUnescape(s: string): string {
-  return s
-    .replace(/\\n/gi, "\n")
-    .replace(/\\;/g, ";")
-    .replace(/\\,/g, ",")
-    .replace(/\\\\/g, "\\");
 }

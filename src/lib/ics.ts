@@ -1,37 +1,6 @@
+import { ics } from "@applicator/sdk/utilities";
 import { EventData } from "@/src/types";
 import { expandEvent } from "@/src/lib/recurrence";
-
-function icsEscape(s: string): string {
-  return s
-    .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\\;")
-    .replace(/,/g, "\\,")
-    .replace(/\n/g, "\\n");
-}
-
-function icsDate(isoStr: string, allDay: boolean): string {
-  const d = new Date(isoStr);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  if (allDay) return `${y}${m}${day}`;
-  const h = String(d.getUTCHours()).padStart(2, "0");
-  const min = String(d.getUTCMinutes()).padStart(2, "0");
-  const s = String(d.getUTCSeconds()).padStart(2, "0");
-  return `${y}${m}${day}T${h}${min}${s}Z`;
-}
-
-function wrapLine(line: string): string {
-  const MAX = 75;
-  if (line.length <= MAX) return line;
-  let result = line.substring(0, MAX);
-  let pos = MAX;
-  while (pos < line.length) {
-    result += "\r\n " + line.substring(pos, pos + MAX - 1);
-    pos += MAX - 1;
-  }
-  return result;
-}
 
 function icsTransp(status?: string): string {
   if (status === "busy") return "OPAQUE";
@@ -52,15 +21,15 @@ function buildVEvent(
   const lines: string[] = ["BEGIN:VEVENT"];
   lines.push(`UID:${uid}@applicator`);
   if (allDay) {
-    lines.push(`DTSTART;VALUE=DATE:${icsDate(startDate, true)}`);
-    lines.push(`DTEND;VALUE=DATE:${icsDate(endDate, true)}`);
+    lines.push(`DTSTART;VALUE=DATE:${ics.icsDate(startDate, true)}`);
+    lines.push(`DTEND;VALUE=DATE:${ics.icsDate(endDate, true)}`);
   } else {
-    lines.push(`DTSTART:${icsDate(startDate, false)}`);
-    lines.push(`DTEND:${icsDate(endDate, false)}`);
+    lines.push(`DTSTART:${ics.icsDate(startDate, false)}`);
+    lines.push(`DTEND:${ics.icsDate(endDate, false)}`);
   }
-  lines.push(wrapLine(`SUMMARY:${icsEscape(name)}`));
-  if (description) lines.push(wrapLine(`DESCRIPTION:${icsEscape(description)}`));
-  if (location) lines.push(wrapLine(`LOCATION:${icsEscape(location)}`));
+  lines.push(ics.icsFoldLine(`SUMMARY:${ics.icsEscape(name)}`));
+  if (description) lines.push(ics.icsFoldLine(`DESCRIPTION:${ics.icsEscape(description)}`));
+  if (location) lines.push(ics.icsFoldLine(`LOCATION:${ics.icsEscape(location)}`));
   lines.push(`TRANSP:${icsTransp(status)}`);
   lines.push("END:VEVENT");
   return lines;
@@ -73,7 +42,7 @@ export function generateICS(calendarName: string, events: EventData[]): string {
     "PRODID:-//Applicator//Calendars//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    wrapLine(`X-WR-CALNAME:${icsEscape(calendarName)}`),
+    ics.icsFoldLine(`X-WR-CALNAME:${ics.icsEscape(calendarName)}`),
   ];
 
   const now = new Date();
