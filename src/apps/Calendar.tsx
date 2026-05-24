@@ -9,11 +9,13 @@ import {
 } from "@applicator/sdk/components";
 import { UiContext } from "@applicator/sdk/context";
 import { datetime } from "@applicator/sdk/utilities";
-import { CalendarData, CategoryData, IcsSubscriptionData, EventOccurrence, ViewMode } from "@/src/types";
+import { CalendarData, CategoryData, IcsSubscriptionData, EventOccurrence, ViewMode, TodoData } from "@/src/types";
 import CalendarSidebar from "@/src/components/CalendarSidebar";
 import CalendarView from "@/src/components/CalendarView";
 import EventPanel from "@/src/components/EventPanel";
 import EventModal from "@/src/components/EventModal";
+import TodoPanel from "@/src/components/TodoPanel";
+import TodoModal from "@/src/components/TodoModal";
 import CalendarSettingsModal from "@/src/components/CalendarSettingsModal";
 import NewCalendarModal from "@/src/components/NewCalendarModal";
 
@@ -54,13 +56,17 @@ export default function Calendar({ context: _context }: Props) {
     return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   });
   const [events, setEvents] = React.useState<EventOccurrence[]>([]);
+  const [todos, setTodos] = React.useState<TodoData[]>([]);
   const [eventsLoading, setEventsLoading] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [lastRefreshed, setLastRefreshed] = React.useState<Date | null>(null);
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   const [selectedEvent, setSelectedEvent] = React.useState<EventOccurrence | null>(null);
+  const [selectedTodo, setSelectedTodo] = React.useState<TodoData | null>(null);
   const [showEventModal, setShowEventModal] = React.useState(false);
   const [editingEvent, setEditingEvent] = React.useState<EventOccurrence | null>(null);
+  const [showTodoModal, setShowTodoModal] = React.useState(false);
+  const [editingTodo, setEditingTodo] = React.useState<TodoData | null>(null);
   const [showCalendarSettings, setShowCalendarSettings] = React.useState(false);
   const [showNewCalendar, setShowNewCalendar] = React.useState(false);
 
@@ -109,14 +115,18 @@ export default function Calendar({ context: _context }: Props) {
   }
 
   async function loadEvents() {
-    if (!selectedCalendarId) { setEvents([]); return; }
+    if (!selectedCalendarId) { setEvents([]); setTodos([]); return; }
     setEventsLoading(true);
     try {
       const { start, end } = getViewRange(viewMode, currentDate);
       const params = new URLSearchParams({ calendarIds: selectedCalendarId, start: start.toISOString(), end: end.toISOString() });
-      const res = await fetch(`/api/calendars/events?${params}`);
-      if (!res.ok) throw new Error("Failed to load events");
-      setEvents((await res.json()).events || []);
+      const [evRes, todoRes] = await Promise.all([
+        fetch(`/api/calendars/events?${params}`),
+        fetch(`/api/calendars/todos?calendarIds=${selectedCalendarId}`),
+      ]);
+      if (!evRes.ok) throw new Error("Failed to load events");
+      setEvents((await evRes.json()).events || []);
+      setTodos(todoRes.ok ? (await todoRes.json()).todos || [] : []);
       setLastRefreshed(new Date());
     } catch (e: any) {
       addToast("error", e.message);
@@ -144,6 +154,14 @@ export default function Calendar({ context: _context }: Props) {
     });
   }, [events, checkedCategoryIds, checkedSubIds]);
 
+  const filteredTodos = React.useMemo(() => {
+    return todos.filter((todo) => {
+      if (todo.icsSubscriptionId) return checkedSubIds.has(todo.icsSubscriptionId);
+      if (todo.categoryId) return checkedCategoryIds.has(todo.categoryId);
+      return true;
+    });
+  }, [todos, checkedCategoryIds, checkedSubIds]);
+
   function handleNavigate(direction: "prev" | "next" | "today" | ViewMode) {
     if (direction === "today") {
       const now = new Date();
@@ -168,6 +186,41 @@ export default function Calendar({ context: _context }: Props) {
     setEvents([]);
     setShowCalendarSettings(false);
     addToast("success", "Calendar deleted");
+  }
+
+  async function handleDeleteTodo() {
+    if (!selectedTodo) return;
+    try {
+      const res = await fetch(`/api/calendars/todos/${selectedTodo.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to delete");
+      setSelectedTodo(null);
+      await loadEvents();
+      addToast("success", "Task deleted");
+    } catch (e: any) {
+      addToast("error", e.message);
+    }
+  }
+
+  async function handleToggleTodoComplete() {
+    if (!selectedTodo) return;
+    const isCompleted = selectedTodo.status === "completed";
+    const newStatus = isCompleted ? "needs-action" : "completed";
+    try {
+      const body: any = { status: newStatus };
+      if (!isCompleted) body.completedAt = new Date().toISOString();
+      else body.completedAt = null;
+      const res = await fetch(`/api/calendars/todos/${selectedTodo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to update");
+      const updated: TodoData = await res.json();
+      setSelectedTodo(updated);
+      setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    } catch (e: any) {
+      addToast("error", e.message);
+    }
   }
 
   async function handleDeleteEvent(scope: "one" | "following" | "all") {
@@ -312,14 +365,17 @@ export default function Calendar({ context: _context }: Props) {
               viewMode={viewMode}
               currentDate={currentDate}
               events={filteredEvents}
+              todos={filteredTodos}
               calendars={calendars}
               categories={categories}
-              onEventClick={(ev) => setSelectedEvent(ev)}
+              onEventClick={(ev) => { setSelectedTodo(null); setSelectedEvent(ev); }}
+              onTodoClick={(todo) => { setSelectedEvent(null); setSelectedTodo(todo); }}
               onNavigate={handleNavigate as any}
               lastRefreshed={lastRefreshed}
               onRefresh={() => { loadCalendars(); loadEvents(); }}
               refreshing={eventsLoading}
               onNewEvent={canEdit ? () => { setEditingEvent(null); setShowEventModal(true); } : undefined}
+              onNewTodo={canEdit ? () => { setEditingTodo(null); setShowTodoModal(true); } : undefined}
               onSettings={() => setShowCalendarSettings(true)}
             />
             {selectedEvent && (
@@ -335,6 +391,24 @@ export default function Calendar({ context: _context }: Props) {
                   onClose={() => setSelectedEvent(null)}
                   onEdit={() => { setEditingEvent(selectedEvent); setShowEventModal(true); }}
                   onDelete={handleDeleteEvent}
+                  canEdit={canEdit}
+                />
+              </>
+            )}
+            {selectedTodo && (
+              <>
+                <div
+                  style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 10 }}
+                  onClick={() => setSelectedTodo(null)}
+                />
+                <TodoPanel
+                  todo={selectedTodo}
+                  calendar={calendars.find((c) => c.id === selectedTodo.calendarId)}
+                  category={categories.find((c) => c.id === selectedTodo.categoryId) || null}
+                  onClose={() => setSelectedTodo(null)}
+                  onEdit={() => { setEditingTodo(selectedTodo); setShowTodoModal(true); }}
+                  onDelete={handleDeleteTodo}
+                  onToggleComplete={handleToggleTodoComplete}
                   canEdit={canEdit}
                 />
               </>
@@ -372,6 +446,22 @@ export default function Calendar({ context: _context }: Props) {
             setSelectedEvent(null);
             await loadEvents();
             addToast("success", editingEvent ? "Event updated" : "Event created");
+          }}
+        />
+      )}
+
+      {showTodoModal && selectedCalendar && (
+        <TodoModal
+          calendarId={selectedCalendar.id}
+          categories={categories}
+          todo={editingTodo}
+          onClose={() => { setShowTodoModal(false); setEditingTodo(null); }}
+          onSaved={async () => {
+            setShowTodoModal(false);
+            setEditingTodo(null);
+            setSelectedTodo(null);
+            await loadEvents();
+            addToast("success", editingTodo ? "Task updated" : "Task created");
           }}
         />
       )}

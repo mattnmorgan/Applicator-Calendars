@@ -4,9 +4,10 @@ import React from "react";
 import { Spinner, Icon } from "@applicator/sdk/components";
 import { UiContext } from "@applicator/sdk/context";
 import { datetime } from "@applicator/sdk/utilities";
-import { CalendarData, CategoryData, EventOccurrence, ViewMode } from "@/src/types";
+import { CalendarData, CategoryData, EventOccurrence, TodoData, ViewMode } from "@/src/types";
 import CalendarView from "@/src/components/CalendarView";
 import EventPanel from "@/src/components/EventPanel";
+import TodoPanel from "@/src/components/TodoPanel";
 
 const { addDays, addMonths, getWeekStart } = datetime;
 
@@ -42,6 +43,7 @@ export default function CalendarWidget({ context: _context, settings, maxHeight 
   const [calendars, setCalendars] = React.useState<CalendarData[]>([]);
   const [categories, setCategories] = React.useState<CategoryData[]>([]);
   const [events, setEvents] = React.useState<EventOccurrence[]>([]);
+  const [todos, setTodos] = React.useState<TodoData[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [viewMode, setViewMode] = React.useState<ViewMode>(viewType);
   const [currentDate, setCurrentDate] = React.useState(() => {
@@ -50,6 +52,7 @@ export default function CalendarWidget({ context: _context, settings, maxHeight 
   });
   const [lastRefreshed, setLastRefreshed] = React.useState<Date | null>(null);
   const [selectedEvent, setSelectedEvent] = React.useState<EventOccurrence | null>(null);
+  const [selectedTodo, setSelectedTodo] = React.useState<TodoData | null>(null);
 
   async function loadData() {
     if (calendarIds.length === 0) { setLoading(false); return; }
@@ -65,16 +68,20 @@ export default function CalendarWidget({ context: _context, settings, maxHeight 
       setCalendars(filtered);
 
       if (filtered.length > 0) {
-        const [evRes, ...catResults] = await Promise.all([
+        const calIds = filtered.map((c) => c.id).join(",");
+        const [evRes, todoRes, ...catResults] = await Promise.all([
           fetch(`/api/calendars/events?${new URLSearchParams({
-            calendarIds: filtered.map((c) => c.id).join(","),
+            calendarIds: calIds,
             start: start.toISOString(),
             end: end.toISOString(),
           })}`),
+          fetch(`/api/calendars/todos?calendarIds=${encodeURIComponent(calIds)}`),
           ...filtered.map((c) => fetch(`/api/calendars/calendars/${c.id}/categories`)),
         ]);
         const evData = await evRes.json();
         setEvents(evData.events || []);
+        const todoData = await todoRes.json();
+        setTodos(todoData.todos || []);
         setLastRefreshed(new Date());
 
         const allCats: CategoryData[] = [];
@@ -148,9 +155,11 @@ export default function CalendarWidget({ context: _context, settings, maxHeight 
         viewMode={viewMode}
         currentDate={currentDate}
         events={events}
+        todos={todos}
         calendars={calendars}
         categories={categories}
         onEventClick={(ev) => setSelectedEvent(ev)}
+        onTodoClick={(td) => setSelectedTodo(td)}
         onNavigate={handleNavigate as any}
         lastRefreshed={lastRefreshed}
         onRefresh={loadData}
@@ -168,6 +177,24 @@ export default function CalendarWidget({ context: _context, settings, maxHeight 
             onClose={() => setSelectedEvent(null)}
             onEdit={() => {}}
             onDelete={() => {}}
+            canEdit={false}
+          />
+        </>
+      )}
+      {selectedTodo && (
+        <>
+          <div
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 10 }}
+            onClick={() => setSelectedTodo(null)}
+          />
+          <TodoPanel
+            todo={selectedTodo}
+            calendar={calendars.find((c) => c.id === selectedTodo.calendarId)}
+            category={categories.find((c) => c.id === selectedTodo.categoryId) || null}
+            onClose={() => setSelectedTodo(null)}
+            onEdit={() => {}}
+            onDelete={() => {}}
+            onToggleComplete={() => {}}
             canEdit={false}
           />
         </>

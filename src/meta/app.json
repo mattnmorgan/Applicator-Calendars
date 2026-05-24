@@ -1,7 +1,7 @@
 {
   "id": "calendars",
   "name": "Calendars",
-  "version": { "major": 1, "minor": 5, "dev": 19 },
+  "version": { "major": 1, "minor": 6, "dev": 3 },
   "author": "Matthew Morgan",
   "contactEmail": "matthew@morgantech.info",
   "description": "Maintain schedules, agendas, and important dates in a calendar form",
@@ -343,6 +343,95 @@
           "description": "Default view override: today, 3days, week, month, agenda (empty = use calendar default)"
         }
       ]
+    },
+    {
+      "name": "todo",
+      "description": "A task or to-do item associated with a calendar",
+      "fields": [
+        {
+          "name": "calendarId",
+          "type": "relationship",
+          "relatedTo": "calendar",
+          "required": true,
+          "description": "Parent calendar"
+        },
+        {
+          "name": "summary",
+          "type": "string",
+          "required": true,
+          "description": "Task title / summary"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "description": "Optional task description"
+        },
+        {
+          "name": "due",
+          "type": "string",
+          "description": "ISO date or datetime when the task is due"
+        },
+        {
+          "name": "allDay",
+          "type": "boolean",
+          "description": "Whether the due value is a date-only (all-day)"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Task status: needs-action, in-process, completed, cancelled"
+        },
+        {
+          "name": "priority",
+          "type": "number",
+          "description": "Priority 1–9 (1=highest, 9=lowest); omit for no priority"
+        },
+        {
+          "name": "completedAt",
+          "type": "string",
+          "description": "ISO datetime when the task was completed"
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "description": "Override color (hex); set from ICS subscription color on sync"
+        },
+        {
+          "name": "categoryId",
+          "type": "relationship",
+          "relatedTo": "category",
+          "description": "Category assigned to this task"
+        },
+        {
+          "name": "icsSubscriptionId",
+          "type": "string",
+          "description": "ICS subscription ID if this task was synced from an ICS feed"
+        },
+        {
+          "name": "icsUid",
+          "type": "string",
+          "description": "UID from the source VTODO, used to track synced tasks"
+        },
+        {
+          "name": "createdBy",
+          "type": "relationship",
+          "relatedTo": "system:users",
+          "required": true,
+          "description": "Creating user"
+        },
+        {
+          "name": "createdAt",
+          "type": "string",
+          "required": true,
+          "description": "ISO creation timestamp"
+        },
+        {
+          "name": "updatedAt",
+          "type": "string",
+          "required": true,
+          "description": "ISO last-updated timestamp"
+        }
+      ]
     }
   ],
   "authorizations": [
@@ -580,6 +669,31 @@
       "path": "users",
       "method": "GET",
       "description": "List active users for sharing"
+    },
+    {
+      "path": "todos",
+      "method": "GET",
+      "description": "List todos for one or more calendars"
+    },
+    {
+      "path": "todos",
+      "method": "POST",
+      "description": "Create a new todo"
+    },
+    {
+      "path": "todos/[todo-id]",
+      "method": "GET",
+      "description": "Get a todo"
+    },
+    {
+      "path": "todos/[todo-id]",
+      "method": "PATCH",
+      "description": "Update a todo"
+    },
+    {
+      "path": "todos/[todo-id]",
+      "method": "DELETE",
+      "description": "Delete a todo"
     }
   ],
   "applets": [

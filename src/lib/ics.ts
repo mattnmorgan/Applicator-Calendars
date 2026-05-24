@@ -1,5 +1,5 @@
 import { ics } from "@applicator/sdk/utilities";
-import { EventData } from "@/src/types";
+import { EventData, TodoData } from "@/src/types";
 import { expandEvent } from "@/src/lib/recurrence";
 
 function icsTransp(status?: string): string {
@@ -35,7 +35,33 @@ function buildVEvent(
   return lines;
 }
 
-export function generateICS(calendarName: string, events: EventData[]): string {
+function buildVTodo(todo: TodoData): string[] {
+  const lines: string[] = ["BEGIN:VTODO"];
+  lines.push(`UID:${todo.id}@applicator`);
+  lines.push(`DTSTAMP:${ics.icsStamp()}`);
+  lines.push(ics.icsFoldLine(`SUMMARY:${ics.icsEscape(todo.summary)}`));
+  if (todo.description) lines.push(ics.icsFoldLine(`DESCRIPTION:${ics.icsEscape(todo.description)}`));
+  if (todo.due) {
+    if (todo.allDay) {
+      lines.push(`DUE;VALUE=DATE:${ics.icsDate(todo.due, true)}`);
+    } else {
+      lines.push(`DUE:${ics.icsDate(todo.due, false)}`);
+    }
+  }
+  const statusMap: Record<string, string> = {
+    "needs-action": "NEEDS-ACTION",
+    "in-process": "IN-PROCESS",
+    "completed": "COMPLETED",
+    "cancelled": "CANCELLED",
+  };
+  lines.push(`STATUS:${statusMap[todo.status] || "NEEDS-ACTION"}`);
+  if (todo.priority !== undefined) lines.push(`PRIORITY:${todo.priority}`);
+  if (todo.completedAt) lines.push(`COMPLETED:${ics.icsDate(todo.completedAt, false)}`);
+  lines.push("END:VTODO");
+  return lines;
+}
+
+export function generateICS(calendarName: string, events: EventData[], todos: TodoData[] = []): string {
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -80,6 +106,10 @@ export function generateICS(calendarName: string, events: EventData[]): string {
         );
       }
     }
+  }
+
+  for (const todo of todos) {
+    lines.push(...buildVTodo(todo));
   }
 
   lines.push("END:VCALENDAR");

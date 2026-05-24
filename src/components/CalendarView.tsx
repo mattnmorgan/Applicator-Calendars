@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { ButtonIcon, Icon, Tooltip } from "@applicator/sdk/components";
+import { ButtonIcon, Tooltip } from "@applicator/sdk/components";
 import { datetime } from "@applicator/sdk/utilities";
-import { EventOccurrence, CalendarData, CategoryData, ViewMode } from "@/src/types";
+import { EventOccurrence, CalendarData, CategoryData, ViewMode, TodoData } from "@/src/types";
 
 const { addDays, getWeekStart, formatDate, parseDate, getMonthStart, formatTime, formatDayHeader, getTimeSinceRefresh } = datetime;
 
@@ -11,14 +11,17 @@ interface Props {
   viewMode: ViewMode;
   currentDate: Date;
   events: EventOccurrence[];
+  todos?: TodoData[];
   calendars: CalendarData[];
   categories?: CategoryData[];
   onEventClick: (event: EventOccurrence) => void;
+  onTodoClick?: (todo: TodoData) => void;
   onNavigate: (direction: "prev" | "next" | "today") => void;
   lastRefreshed: Date | null;
   onRefresh: () => void;
   refreshing?: boolean;
   onNewEvent?: () => void;
+  onNewTodo?: () => void;
   onSettings?: () => void;
 }
 
@@ -80,12 +83,24 @@ function getDateRangeLabel(viewMode: ViewMode, currentDate: Date): string {
 
 // ─── Time Grid View ─────────────────────────────────────────────────────────
 
-function TimeGridView({ days, events, calendars, categories, onEventClick }: {
+function getTodoColor(todo: TodoData, calendars: CalendarData[], categories: CategoryData[]): string {
+  if (todo.color) return todo.color;
+  if (todo.categoryId) {
+    const cat = categories.find((c) => c.id === todo.categoryId);
+    if (cat) return cat.color;
+  }
+  const cal = calendars.find((c) => c.id === todo.calendarId);
+  return cal?.color || "#3B82F6";
+}
+
+function TimeGridView({ days, events, todos, calendars, categories, onEventClick, onTodoClick }: {
   days: Date[];
   events: EventOccurrence[];
+  todos: TodoData[];
   calendars: CalendarData[];
   categories: CategoryData[];
   onEventClick: (ev: EventOccurrence) => void;
+  onTodoClick: (todo: TodoData) => void;
 }) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const now = new Date();
@@ -98,6 +113,7 @@ function TimeGridView({ days, events, calendars, categories, onEventClick }: {
 
   const allDayEvents = events.filter((e) => e.allDay);
   const timedEvents = events.filter((e) => !e.allDay);
+  const todosWithDue = todos.filter((t) => t.due);
 
   const todayStr = formatDate(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())));
 
@@ -132,12 +148,13 @@ function TimeGridView({ days, events, calendars, categories, onEventClick }: {
       </div>
 
       {/* All-day row */}
-      {allDayEvents.length > 0 && (
+      {(allDayEvents.length > 0 || todosWithDue.length > 0) && (
         <div style={{ display: "flex", borderBottom: "1px solid #334155", flexShrink: 0, minHeight: 32 }}>
           <div style={{ width: 56, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, opacity: 0.5 }}>all-day</div>
           {days.map((day) => {
             const dayStr = formatDate(day);
             const dayAllDay = allDayEvents.filter((e) => e.occurrenceDate === dayStr);
+            const dayTodos = todosWithDue.filter((t) => t.due!.slice(0, 10) === dayStr);
             return (
               <div key={dayStr} style={{ flex: 1, padding: "2px 4px", display: "flex", flexDirection: "column", gap: 2 }}>
                 {dayAllDay.map((ev) => (
@@ -160,6 +177,29 @@ function TimeGridView({ days, events, calendars, categories, onEventClick }: {
                     }}
                   >
                     {ev.name}
+                  </button>
+                ))}
+                {dayTodos.map((todo) => (
+                  <button
+                    key={todo.id}
+                    onClick={() => onTodoClick(todo)}
+                    style={{
+                      background: "transparent",
+                      color: "#e2e8f0",
+                      border: `1px solid ${getTodoColor(todo, calendars, categories)}`,
+                      borderRadius: 3,
+                      padding: "1px 6px",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      width: "100%",
+                      opacity: todo.status === "completed" ? 0.5 : 1,
+                    }}
+                  >
+                    {todo.summary}
                   </button>
                 ))}
               </div>
@@ -281,12 +321,14 @@ function TimeGridView({ days, events, calendars, categories, onEventClick }: {
 
 // ─── Month View ──────────────────────────────────────────────────────────────
 
-function MonthView({ currentDate, events, calendars, categories, onEventClick, onDayClick }: {
+function MonthView({ currentDate, events, todos, calendars, categories, onEventClick, onTodoClick, onDayClick }: {
   currentDate: Date;
   events: EventOccurrence[];
+  todos: TodoData[];
   calendars: CalendarData[];
   categories: CategoryData[];
   onEventClick: (ev: EventOccurrence) => void;
+  onTodoClick: (todo: TodoData) => void;
   onDayClick: (day: Date) => void;
 }) {
   const monthStart = getMonthStart(currentDate);
@@ -322,8 +364,10 @@ function MonthView({ currentDate, events, calendars, categories, onEventClick, o
               const isToday = dayStr === todayStr;
               const isCurrentMonth = `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}` === currentMonthStr;
               const dayEvents = events.filter((e) => occurrenceDateLocal(e) === dayStr).sort((a, b) => a.occurrenceStart.localeCompare(b.occurrenceStart));
+              const dayTodos = todos.filter((t) => t.due && t.due.slice(0, 10) === dayStr);
+              const allItems = dayEvents.length + dayTodos.length;
               const maxVisible = 3;
-              const overflow = dayEvents.length - maxVisible;
+              const overflow = allItems - maxVisible;
 
               return (
                 <div
@@ -380,6 +424,30 @@ function MonthView({ currentDate, events, calendars, categories, onEventClick, o
                         {ev.name}
                       </button>
                     ))}
+                    {dayTodos.slice(0, Math.max(0, maxVisible - dayEvents.length)).map((todo) => (
+                      <button
+                        key={todo.id}
+                        onClick={(e) => { e.stopPropagation(); onTodoClick(todo); }}
+                        style={{
+                          background: "transparent",
+                          color: "#e2e8f0",
+                          border: `1px solid ${getTodoColor(todo, calendars, categories)}`,
+                          borderRadius: 2,
+                          padding: "1px 4px",
+                          fontSize: 11,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          width: "100%",
+                          opacity: todo.status === "completed" ? 0.5 : 1,
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        {todo.summary}
+                      </button>
+                    ))}
                     {overflow > 0 && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onDayClick(day); }}
@@ -401,17 +469,32 @@ function MonthView({ currentDate, events, calendars, categories, onEventClick, o
 
 // ─── Agenda View ─────────────────────────────────────────────────────────────
 
-function AgendaView({ events, calendars, categories, onEventClick }: {
+const TODO_STATUS_LABEL: Record<string, string> = {
+  "needs-action": "To do",
+  "in-process": "In progress",
+  "completed": "Completed",
+  "cancelled": "Cancelled",
+};
+
+function AgendaView({ events, todos, calendars, categories, onEventClick, onTodoClick }: {
   events: EventOccurrence[];
+  todos: TodoData[];
   calendars: CalendarData[];
   categories: CategoryData[];
   onEventClick: (ev: EventOccurrence) => void;
+  onTodoClick: (todo: TodoData) => void;
 }) {
-  const grouped: Record<string, EventOccurrence[]> = {};
+  const grouped: Record<string, { events: EventOccurrence[]; todos: TodoData[] }> = {};
   for (const ev of events) {
     const key = occurrenceDateLocal(ev);
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(ev);
+    if (!grouped[key]) grouped[key] = { events: [], todos: [] };
+    grouped[key].events.push(ev);
+  }
+  for (const todo of todos) {
+    if (!todo.due) continue;
+    const key = todo.due.slice(0, 10);
+    if (!grouped[key]) grouped[key] = { events: [], todos: [] };
+    grouped[key].todos.push(todo);
   }
 
   const dates = Object.keys(grouped).sort();
@@ -420,7 +503,7 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
   if (dates.length === 0) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.5, fontSize: 14 }}>
-        No upcoming events
+        No upcoming events or tasks
       </div>
     );
   }
@@ -430,13 +513,14 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
       {dates.map((dateStr) => {
         const d = parseDate(dateStr);
         const label = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+        const { events: dayEvents, todos: dayTodos } = grouped[dateStr];
         return (
           <div key={dateStr} style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.6, marginBottom: 8, paddingBottom: 4, borderBottom: "1px solid #334155" }}>
               {label}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {grouped[dateStr].map((ev) => {
+              {dayEvents.map((ev) => {
                 const evKey = ev.id + ev.occurrenceDate;
                 return (
                 <button
@@ -473,6 +557,41 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
                 </button>
               );
               })}
+              {dayTodos.map((todo) => {
+                const todoKey = "todo-" + todo.id;
+                const color = getTodoColor(todo, calendars, categories);
+                return (
+                  <button
+                    key={todoKey}
+                    onClick={() => onTodoClick(todo)}
+                    onMouseEnter={() => setHoveredKey(todoKey)}
+                    onMouseLeave={() => setHoveredKey(null)}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                      padding: "8px 12px",
+                      border: `1px solid ${color}33`,
+                      borderRadius: 8,
+                      background: hoveredKey === todoKey ? "#273548" : "#1e293b",
+                      color: "#e2e8f0",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      width: "100%",
+                      transition: "background 0.1s",
+                      opacity: todo.status === "completed" ? 0.6 : 1,
+                    }}
+                  >
+                    <div style={{ width: 4, height: "100%", minHeight: 20, borderRadius: 2, border: `2px solid ${color}`, background: "transparent", flexShrink: 0, alignSelf: "stretch" }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, textDecoration: todo.status === "completed" ? "line-through" : "none" }}>
+                        {todo.summary}
+                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.7 }}>{TODO_STATUS_LABEL[todo.status] || todo.status}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         );
@@ -483,12 +602,14 @@ function AgendaView({ events, calendars, categories, onEventClick }: {
 
 // ─── Day Flyout ───────────────────────────────────────────────────────────────
 
-function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }: {
+function DayFlyout({ day, events, todos, calendars, categories, onEventClick, onTodoClick, onClose }: {
   day: Date;
   events: EventOccurrence[];
+  todos: TodoData[];
   calendars: CalendarData[];
   categories: CategoryData[];
   onEventClick: (ev: EventOccurrence) => void;
+  onTodoClick: (todo: TodoData) => void;
   onClose: () => void;
 }) {
   const [visible, setVisible] = React.useState(false);
@@ -507,6 +628,7 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
       if (!a.allDay && b.allDay) return 1;
       return a.occurrenceStart.localeCompare(b.occurrenceStart);
     });
+  const dayTodos = todos.filter((t) => t.due && t.due.slice(0, 10) === dayStr);
 
   const label = day.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
@@ -544,9 +666,9 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px" }}>
-        {dayEvents.length === 0 ? (
+        {dayEvents.length === 0 && dayTodos.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.5, fontSize: 14 }}>
-            No events this day
+            No events or tasks this day
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
@@ -588,6 +710,41 @@ function DayFlyout({ day, events, calendars, categories, onEventClick, onClose }
               </button>
               );
             })}
+            {dayTodos.map((todo) => {
+              const todoKey = "todo-" + todo.id;
+              const color = getTodoColor(todo, calendars, categories);
+              return (
+                <button
+                  key={todoKey}
+                  onClick={() => onTodoClick(todo)}
+                  onMouseEnter={() => setHoveredKey(todoKey)}
+                  onMouseLeave={() => setHoveredKey(null)}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    padding: "8px 12px",
+                    border: `1px solid ${color}44`,
+                    borderRadius: 8,
+                    background: hoveredKey === todoKey ? "#1e293b" : "#0f172a",
+                    color: "#e2e8f0",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    width: "100%",
+                    transition: "background 0.1s",
+                    opacity: todo.status === "completed" ? 0.6 : 1,
+                  }}
+                >
+                  <div style={{ width: 4, borderRadius: 2, border: `2px solid ${color}`, background: "transparent", flexShrink: 0, alignSelf: "stretch", minHeight: 20 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, textDecoration: todo.status === "completed" ? "line-through" : "none" }}>
+                      {todo.summary}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>{TODO_STATUS_LABEL[todo.status] || todo.status}</div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -610,14 +767,16 @@ export default function CalendarView({
   viewMode,
   currentDate,
   events,
+  todos = [],
   calendars,
   categories = [],
   onEventClick,
+  onTodoClick,
   onNavigate,
   lastRefreshed,
   onRefresh,
-  refreshing,
   onNewEvent,
+  onNewTodo,
   onSettings,
 }: Props) {
   const days = getDaysForView(viewMode, currentDate);
@@ -629,6 +788,11 @@ export default function CalendarView({
   function handleDayEventClick(ev: EventOccurrence) {
     setSelectedDay(null);
     onEventClick(ev);
+  }
+
+  function handleDayTodoClick(todo: TodoData) {
+    setSelectedDay(null);
+    onTodoClick?.(todo);
   }
 
   return (
@@ -689,6 +853,7 @@ export default function CalendarView({
           )}
           <ButtonIcon name="refresh" label="Refresh" onClick={onRefresh} size="sm" />
           {onNewEvent && <ButtonIcon name="plus" label="New event" onClick={onNewEvent} size="sm" />}
+          {onNewTodo && <ButtonIcon name="check-circle" label="New task" onClick={onNewTodo} size="sm" />}
           {onSettings && <ButtonIcon name="settings" label="Calendar settings" onClick={onSettings} size="sm" />}
         </div>
       </div>
@@ -696,13 +861,13 @@ export default function CalendarView({
       {/* Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
         {(viewMode === "today" || viewMode === "3days" || viewMode === "week") && days.length > 0 && (
-          <TimeGridView days={days} events={events} calendars={calendars} categories={categories} onEventClick={onEventClick} />
+          <TimeGridView days={days} events={events} todos={todos} calendars={calendars} categories={categories} onEventClick={onEventClick} onTodoClick={(t) => onTodoClick?.(t)} />
         )}
         {viewMode === "month" && (
-          <MonthView currentDate={currentDate} events={events} calendars={calendars} categories={categories} onEventClick={onEventClick} onDayClick={(day) => setSelectedDay(day)} />
+          <MonthView currentDate={currentDate} events={events} todos={todos} calendars={calendars} categories={categories} onEventClick={onEventClick} onTodoClick={(t) => onTodoClick?.(t)} onDayClick={(day) => setSelectedDay(day)} />
         )}
         {viewMode === "agenda" && (
-          <AgendaView events={events} calendars={calendars} categories={categories} onEventClick={onEventClick} />
+          <AgendaView events={events} todos={todos} calendars={calendars} categories={categories} onEventClick={onEventClick} onTodoClick={(t) => onTodoClick?.(t)} />
         )}
       </div>
 
@@ -716,9 +881,11 @@ export default function CalendarView({
           <DayFlyout
             day={selectedDay}
             events={events}
+            todos={todos}
             calendars={calendars}
             categories={categories}
             onEventClick={handleDayEventClick}
+            onTodoClick={handleDayTodoClick}
             onClose={() => setSelectedDay(null)}
           />
         </>

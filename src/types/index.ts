@@ -166,3 +166,54 @@ export interface UserData {
   username: string;
   profilePicture: string | null;
 }
+
+export type TodoStatus = "needs-action" | "in-process" | "completed" | "cancelled";
+
+export interface TodoRecord {
+  calendarId: string;
+  summary: string;
+  description?: string;
+  due?: string;
+  allDay?: boolean;
+  status: string;
+  priority?: number;
+  completedAt?: string;
+  color?: string;
+  categoryId?: string;
+  icsSubscriptionId?: string;
+  icsUid?: string;
+  icsCategory?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TodoData {
+  id: string;
+  calendarId: string;
+  summary: string;
+  description?: string;
+  due?: string;
+  allDay: boolean;
+  status: TodoStatus;
+  priority?: number;
+  completedAt?: string;
+  color?: string;
+  categoryId?: string | null;
+  icsSubscriptionId?: string | null;
+  icsCategory?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ParsedICSTodo {
+  uid: string;
+  summary: string;
+  description?: string;
+  due?: string;
+  allDay?: boolean;
+  status: TodoStatus;
+  priority?: number;
+  completedAt?: string;
+}

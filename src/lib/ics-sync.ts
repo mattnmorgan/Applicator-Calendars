@@ -1,5 +1,5 @@
 import { ApiContext } from "@applicator/sdk/context";
-import { EventRecord } from "@/src/types";
+import { EventRecord, TodoRecord } from "@/src/types";
 import { parseICS } from "./ics-parser";
 
 export async function syncICSSubscription(
@@ -23,19 +23,28 @@ export async function syncICSSubscription(
     throw e;
   }
 
-  const events = parseICS(icsContent);
+  const { events, todos } = parseICS(icsContent);
 
   const eventsRm = context.recordManager<EventRecord>("calendars", "event");
-  const existing = await eventsRm.readRecords({ fields: { calendarId }, limit: 5000 });
-  const toDelete = existing.records.filter((r: any) => r.data.icsSubscriptionId === subscriptionId);
-  if (toDelete.length > 0) {
-    await eventsRm.bulkDeleteRecords(toDelete.map((r: any) => r.id));
-  }
+  const todosRm = context.recordManager<TodoRecord>("calendars", "todo");
+
+  const [existingEvents, existingTodos] = await Promise.all([
+    eventsRm.readRecords({ fields: { calendarId }, limit: 5000 }),
+    todosRm.readRecords({ fields: { calendarId }, limit: 5000 }),
+  ]);
+
+  const eventsToDelete = existingEvents.records.filter((r: any) => r.data.icsSubscriptionId === subscriptionId);
+  const todosToDelete = existingTodos.records.filter((r: any) => r.data.icsSubscriptionId === subscriptionId);
+
+  await Promise.all([
+    eventsToDelete.length > 0 ? eventsRm.bulkDeleteRecords(eventsToDelete.map((r: any) => r.id)) : Promise.resolve(),
+    todosToDelete.length > 0 ? todosRm.bulkDeleteRecords(todosToDelete.map((r: any) => r.id)) : Promise.resolve(),
+  ]);
 
   const now = new Date().toISOString();
-  const table = await eventsRm.getTable();
+  const eventsTable = await eventsRm.getTable();
   for (const ev of events) {
-    await eventsRm.createRecord(table, {
+    await eventsRm.createRecord(eventsTable, {
       calendarId,
       name: ev.summary,
       description: ev.description || "",
@@ -54,5 +63,26 @@ export async function syncICSSubscription(
     } as any);
   }
 
-  return events.length;
+  const todosTable = await todosRm.getTable();
+  for (const todo of todos) {
+    await todosRm.createRecord(todosTable, {
+      calendarId,
+      summary: todo.summary,
+      description: todo.description || "",
+      due: todo.due || null,
+      allDay: todo.allDay ?? true,
+      status: todo.status,
+      priority: todo.priority ?? null,
+      completedAt: todo.completedAt || null,
+      color,
+      icsSubscriptionId: subscriptionId,
+      icsUid: todo.uid,
+      icsCategory: todo.icsCategory || null,
+      createdBy,
+      createdAt: now,
+      updatedAt: now,
+    } as any);
+  }
+
+  return events.length + todos.length;
 }
