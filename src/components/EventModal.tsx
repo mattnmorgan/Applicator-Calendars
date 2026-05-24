@@ -295,14 +295,20 @@ export default function EventModal({ calendarId, calendarColor, categories = [],
             <DynamicInput
               input={{ id: "startDate", label: "Start", type: allDay ? "date" : "datetime" }}
               value={startDate}
-              onChange={(_, v) => setStartDate(v)}
+              onChange={(_, v) => {
+                setStartDate(v);
+                if (v > endDate) setEndDate(v);
+              }}
             />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <DynamicInput
               input={{ id: "endDate", label: "End", type: allDay ? "date" : "datetime" }}
               value={endDate}
-              onChange={(_, v) => setEndDate(v)}
+              onChange={(_, v) => {
+                setEndDate(v);
+                if (v < startDate) setStartDate(v);
+              }}
             />
           </div>
         </div>
