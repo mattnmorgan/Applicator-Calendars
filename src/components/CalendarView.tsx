@@ -484,15 +484,18 @@ function AgendaView({ events, todos, calendars, categories, onEventClick, onTodo
   onEventClick: (ev: EventOccurrence) => void;
   onTodoClick: (todo: TodoData) => void;
 }) {
+  const todayStr = localDateStr(new Date());
   const grouped: Record<string, { events: EventOccurrence[]; todos: TodoData[] }> = {};
   for (const ev of events) {
     const key = occurrenceDateLocal(ev);
+    if (key < todayStr) continue;
     if (!grouped[key]) grouped[key] = { events: [], todos: [] };
     grouped[key].events.push(ev);
   }
   for (const todo of todos) {
     if (!todo.due) continue;
     const key = todo.due.slice(0, 10);
+    if (key < todayStr) continue;
     if (!grouped[key]) grouped[key] = { events: [], todos: [] };
     grouped[key].todos.push(todo);
   }
