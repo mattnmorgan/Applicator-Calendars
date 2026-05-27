@@ -156,7 +156,7 @@ function TimeGridView({ days, events, todos, calendars, categories, onEventClick
             const dayAllDay = allDayEvents.filter((e) => e.occurrenceDate === dayStr);
             const dayTodos = todosWithDue.filter((t) => t.due!.slice(0, 10) === dayStr);
             return (
-              <div key={dayStr} style={{ flex: 1, padding: "2px 4px", display: "flex", flexDirection: "column", gap: 2 }}>
+              <div key={dayStr} style={{ flex: 1, minWidth: 0, padding: "2px 4px", display: "flex", flexDirection: "column", gap: 2 }}>
                 {dayAllDay.map((ev) => (
                   <button
                     key={ev.id + ev.occurrenceDate}
